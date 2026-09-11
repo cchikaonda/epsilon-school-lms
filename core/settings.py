@@ -163,3 +163,7 @@ AUTH_USER_MODEL = "accounts.CustomUser"
 
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://cognisphere.epsilonlms.tech",
+]
