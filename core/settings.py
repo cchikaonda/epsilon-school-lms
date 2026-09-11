@@ -20,13 +20,14 @@ SECRET_KEY = "django-insecure-qn$d-s5ecky4gox702!(^*_1h1ch+i*c#jof4bc^@0g_3a90yo
 DEBUG = True
 
 # Allows localhost, 127.0.0.1, and subdomains like tenant.localhost:8000
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".localhost"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".localhost","cognisphere.epsilonlms.tech"]
 
 # Trusted origins for CSRF middleware on local domains/subdomains
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://*.localhost:8000",
+    "http://cognisphere.epsilonlms:8000",
 ]
 
 
