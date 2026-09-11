@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if school %}{{ school.name }}{% else %}School Login{% endif %} | EPSILON SCHOOL MIS</title>
+    <style>
+        :root {
+            --primary-color: {{ school.primary_color|default:"#047857" }};
+            --secondary-color: {{ school.secondary_color|default:"#065f46" }};
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-color: #0f172a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .login-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .school-logo {
+            max-height: 80px;
+            max-width: 180px;
+            margin-bottom: 1rem;
+            object-fit: contain;
+        }
+
+        .school-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #334155;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(4, 120, 87, 0.2);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 0.5rem;
+        }
+
+        .login-btn:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .error-message {
+            background-color: #fef2f2;
+            color: #991b1b;
+            padding: 0.75rem;
+            border: 1px solid #fecaca;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            display: none;
+            text-align: left;
+        }
+
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    {% if school and school.logo %}
+        <img id="school-logo" src="{{ school.logo.url }}" alt="{{ school.name }} Logo" class="school-logo">
+    {% endif %}
+
+    <h1 id="school-name" class="school-title">
+        {% if school %}{{ school.name }}{% else %}EPSILON School Portal{% endif %}
+    </h1>
+    <p class="subtitle">Sign in to access your dashboard</p>
+
+    <div id="error-box" class="error-message"></div>
+
+    <form id="login-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" required placeholder="name@school.com">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required placeholder="••••••••">
+        </div>
+
+        <button type="submit" id="submit-btn" class="login-btn">Sign In</button>
+    </form>
+
+    <div class="footer">
+        Powered by EPSILON School MIS
+    </div>
+</div>
+
+<script>
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorBox = document.getElementById('error-box');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        errorBox.style.display = 'none';
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Authenticating...';
+
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+
+        try {
+            const res = await fetch('/login/', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken || ''
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                localStorage.setItem('authToken', data.token);
+                window.location.href = '/dashboard/';
+            } else {
+                let errText = 'Login failed. Please check your credentials.';
+                if (data.non_field_errors) {
+                    errText = Array.isArray(data.non_field_errors) ? data.non_field_errors[0] : data.non_field_errors;
+                } else if (data.detail) {
+                    errText = data.detail;
+                }
+                errorBox.innerText = errText;
+                errorBox.style.display = 'block';
+            }
+        } catch (err) {
+            errorBox.innerText = 'Network error. Please try again.';
+            errorBox.style.display = 'block';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Sign In';
+        }
+    });
+</script>
+
+</body>
+</html>

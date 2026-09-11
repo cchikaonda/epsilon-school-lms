@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard | {{ school.name|default:"Epsilon LMS" }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 py-8">
+  <div class="mb-8 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-4">
+    <div>
+      <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">School Administrator Panel</h1>
+      <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Manage school settings, academic terms, and accounts for {{ school.name }}.</p>
+    </div>
+    <span class="bg-brand-light text-brand px-3 py-1 rounded-full text-xs font-bold border border-brand/20">Admin Access</span>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+      <p class="text-xs font-semibold text-brand uppercase tracking-wider">Total Enrolled Students</p>
+      <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">{{ school.student_count|default:"1,240" }}</p>
+    </div>
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+      <p class="text-xs font-semibold text-brand uppercase tracking-wider">Active Teaching Staff</p>
+      <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">{{ school.staff_count|default:"85" }}</p>
+    </div>
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+      <p class="text-xs font-semibold text-brand uppercase tracking-wider">Academic Term</p>
+      <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">Term 2 Active</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <!-- Hero Section -->
+  <header class="max-w-7xl mx-auto px-6 py-16 md:py-20 text-center md:text-left md:flex md:items-center md:justify-between">
+    <div class="md:w-1/2 space-y-6">
+      <span class="bg-brand-light text-brand border border-brand/20 text-xs font-bold px-3.5 py-1.5 rounded-full uppercase tracking-wider inline-block">
+        {% if school %}Official School Portal{% else %}Malawi's Leading Education Platform{% endif %}
+      </span>
+      <h1 class="text-4xl md:text-6xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">
+        Welcome to <span class="text-brand">{% if school %}{{ school.name }}{% else %}Epsilon LMS{% endif %}</span>
+      </h1>
+      <p class="text-lg text-slate-700 dark:text-slate-300 max-w-lg leading-relaxed font-normal">
+        {% if school %}
+          Access classroom schedules, track student progress, manage fee payments, and view academic reports for {{ school.name }}.
+        {% else %}
+          Streamline administration, elevate teaching, and connect students, parents, and educators in one unified digital ecosystem across Malawi.
+        {% endif %}
+      </p>
+      <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+        <a href="/login/" class="bg-brand hover:bg-brand-hover text-white font-semibold px-6 py-3.5 rounded-lg text-center shadow-md transition">
+          {% if school %}Sign In to {{ school.code|default:"Portal" }}{% else %}Sign In to Portal{% endif %}
+        </a>
+        <a href="#features" class="border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-darkblue-800 text-slate-800 dark:text-slate-200 font-semibold px-6 py-3.5 rounded-lg text-center transition">Explore Features</a>
+      </div>
+    </div>
+
+    <!-- Dashboard Preview Widget -->
+    <div class="mt-12 md:mt-0 md:w-1/2">
+      <div class="bg-gradient-to-tr from-darkblue-900 to-slate-800 rounded-2xl p-4 shadow-2xl border border-slate-700">
+        <div class="bg-white dark:bg-darkblue-900 rounded-xl shadow-inner p-6 space-y-5 border border-slate-200 dark:border-slate-800">
+          <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+            <span class="font-bold text-slate-900 dark:text-white text-base">{% if school %}{{ school.name }}{% else %}Epsilon Admin{% endif %} Dashboard</span>
+            <span class="text-xs font-semibold bg-brand-light text-brand px-2.5 py-1 rounded-full flex items-center gap-1 border border-brand/20">
+              <span class="w-2 h-2 bg-brand rounded-full animate-pulse"></span> Live Status
+            </span>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-slate-100 dark:bg-darkblue-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p class="text-xs text-brand font-semibold uppercase tracking-wider">Total Students</p>
+              <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
+                {% if school %}{{ school.student_count|default:"1,250" }}{% else %}25,000+{% endif %}
+              </p>
+            </div>
+            <div class="bg-slate-100 dark:bg-darkblue-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p class="text-xs text-brand font-semibold uppercase tracking-wider">Active Staff</p>
+              <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">
+                {% if school %}{{ school.staff_count|default:"64" }}{% else %}1,200+{% endif %}
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <p class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-3">Recently Active Students</p>
+            <div class="flex items-center space-x-3">
+              <div class="flex -space-x-2 overflow-hidden">
+                <img class="inline-block h-10 w-10 rounded-full ring-2 ring-white dark:ring-darkblue-900 object-cover" src="https://images.pexels.com/photos/8926543/pexels-photo-8926543.jpeg?auto=compress&cs=tinysrgb&w=150" alt="Student Profile">
+                <img class="inline-block h-10 w-10 rounded-full ring-2 ring-white dark:ring-darkblue-900 object-cover" src="https://images.pexels.com/photos/8926541/pexels-photo-8926541.jpeg?auto=compress&cs=tinysrgb&w=150" alt="Student Profile">
+                <img class="inline-block h-10 w-10 rounded-full ring-2 ring-white dark:ring-darkblue-900 object-cover" src="https://images.pexels.com/photos/8926540/pexels-photo-8926540.jpeg?auto=compress&cs=tinysrgb&w=150" alt="Student Profile">
+              </div>
+              <span class="text-xs text-slate-600 dark:text-slate-300 font-semibold">+ Active Session</span>
+            </div>
+          </div>
+
+          <div class="bg-slate-100 dark:bg-darkblue-800 p-3.5 rounded-lg text-xs text-slate-700 dark:text-slate-200 font-medium">
+            <strong class="text-slate-900 dark:text-white">Portal Attendance:</strong> 98.2% online activity recorded for {% if school %}{{ school.name }}{% else %}Epsilon partner schools{% endif %}.
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  {% if not school %}
+  <!-- List of Customers (Shown ONLY on Epsilon main site) -->
+  <section id="customers" class="py-12 bg-slate-200/60 dark:bg-darkblue-900 border-y border-slate-300 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-6 text-center">
+      <p class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-8">Trusted by Leading Educational Institutions Across Malawi</p>
+      <div class="flex flex-wrap justify-center items-center gap-8 md:gap-12">
+        <span class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 bg-white dark:bg-darkblue-800 px-4 py-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+          Kamuzu Academy
+        </span>
+        <span class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 bg-white dark:bg-darkblue-800 px-4 py-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"></path></svg>
+          Mount Sinai International
+        </span>
+        <span class="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2 bg-white dark:bg-darkblue-800 px-4 py-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
+          <svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+          African Bible Colleges
+        </span>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Features Section -->
+  <section id="features" class="bg-white dark:bg-darkblue-950 py-20 border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          {% if school %}School Management Features{% else %}Everything Your School Needs to Thrive{% endif %}
+        </h2>
+        <p class="text-slate-600 dark:text-slate-300 mt-3 text-base">
+          {% if school %}Tailored academic services for {{ school.name }} students and staff.{% else %}Comprehensive tools designed to simplify complex administrative workflows.{% endif %}
+        </p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="p-8 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-darkblue-900 hover:shadow-lg transition">
+          <div class="w-12 h-12 bg-brand-light text-brand rounded-xl flex items-center justify-center mb-6 border border-brand/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Academic Analytics</h3>
+          <p class="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">Track student progress, generate report cards, and gain insights into class performance trends.</p>
+        </div>
+        <div class="p-8 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-darkblue-900 hover:shadow-lg transition">
+          <div class="w-12 h-12 bg-brand-light text-brand rounded-xl flex items-center justify-center mb-6 border border-brand/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Fee Management</h3>
+          <p class="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">Manage tuition payments in MWK, send automated notifications, and issue instant receipts.</p>
+        </div>
+        <div class="p-8 border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-darkblue-900 hover:shadow-lg transition">
+          <div class="w-12 h-12 bg-brand-light text-brand rounded-xl flex items-center justify-center mb-6 border border-brand/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-3">Parent Portal</h3>
+          <p class="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">Keep parents engaged with real-time updates on attendance, grades, term announcements, and homework.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {% if not school %}
+  <!-- Pricing Section (Shown ONLY on Epsilon main site) -->
+  <section id="pricing" class="py-20 bg-slate-200/50 dark:bg-darkblue-900 border-t border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-6">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Simple, Transparent Pricing</h2>
+        <p class="text-slate-600 dark:text-slate-300 mt-3 text-base">Choose the plan that best fits your institution's scale (Billed in MWK).</p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-8">
+        <div class="bg-white dark:bg-darkblue-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between shadow-sm">
+          <div>
+            <h3 class="text-xl font-bold text-slate-900 dark:text-white">Starter</h3>
+            <p class="text-slate-600 dark:text-slate-300 text-sm mt-1">For small private schools</p>
+            <div class="my-6">
+              <span class="text-3xl font-extrabold text-slate-900 dark:text-white">MWK 500,000</span><span class="text-slate-600 dark:text-slate-300 text-sm font-medium"> / month</span>
+            </div>
+            <ul class="space-y-3.5 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <li class="flex items-center gap-2"><svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg> Up to 500 Students</li>
+              <li class="flex items-center gap-2"><svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg> Core Academic Portal</li>
+            </ul>
+          </div>
+          <a href="#" class="mt-8 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white font-semibold py-3 rounded-xl text-center transition">Get Started</a>
+        </div>
+
+        <div class="bg-brand text-white p-8 rounded-2xl flex flex-col justify-between shadow-xl relative">
+          <span class="absolute -top-3.5 right-6 bg-white text-slate-900 text-xs font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow-sm">Most Popular</span>
+          <div>
+            <h3 class="text-xl font-bold">Professional</h3>
+            <p class="text-white/80 text-sm mt-1">For growing K-12 schools & colleges</p>
+            <div class="my-6">
+              <span class="text-3xl font-extrabold">MWK 1,000,000</span><span class="text-white/80 text-sm font-medium"> / month</span>
+            </div>
+            <ul class="space-y-3.5 text-sm font-medium">
+              <li class="flex items-center gap-2"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg> Up to 2,000 Students</li>
+              <li class="flex items-center gap-2"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg> Custom Domain Branding</li>
+            </ul>
+          </div>
+          <a href="#" class="mt-8 bg-white hover:bg-slate-100 text-slate-900 font-bold py-3 rounded-xl text-center transition shadow-md">Start Free Trial</a>
+        </div>
+
+        <div class="bg-white dark:bg-darkblue-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between shadow-sm">
+          <div>
+            <h3 class="text-xl font-bold text-slate-900 dark:text-white">Enterprise</h3>
+            <p class="text-slate-600 dark:text-slate-300 text-sm mt-1">For large institutions</p>
+            <div class="my-6">
+              <span class="text-3xl font-extrabold text-slate-900 dark:text-white">Custom</span>
+            </div>
+            <ul class="space-y-3.5 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <li class="flex items-center gap-2"><svg class="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg> Unlimited Students</li>
+            </ul>
+          </div>
+          <a href="#" class="mt-8 border border-slate-300 dark:border-slate-600 hover:bg-slate-100 text-slate-900 dark:text-white font-semibold py-3 rounded-xl text-center transition">Contact Sales</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+{% endblock %}

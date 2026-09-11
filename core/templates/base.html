@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{% if school %}{{ school.name }} - School Portal{% else %}Epsilon LMS - School Management System{% endif %}{% endblock %}</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- SweetAlert2 CSS & JS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              DEFAULT: 'var(--brand-primary, #047857)',
+              hover: 'var(--brand-primary-hover, #065f46)',
+              accent: 'var(--brand-accent, #10b981)',
+              light: 'var(--brand-light, #ecfdf5)',
+              dark: 'var(--brand-dark, #064e3b)',
+            },
+            darkblue: {
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617',
+            }
+          }
+        },
+      },
+    }
+  </script>
+
+  <!-- Dynamic CSS Colors based on School Primary Color -->
+  <style>
+    :root {
+      {% if school and school.primary_color %}
+        --brand-primary: {{ school.primary_color }};
+        --brand-primary-hover: {{ school.primary_color }}dd;
+        --brand-accent: {{ school.primary_color }};
+        --brand-light: {{ school.primary_color }}15;
+        --brand-dark: {{ school.primary_color }};
+      {% else %}
+        --brand-primary: #047857;
+        --brand-primary-hover: #065f46;
+        --brand-accent: #10b981;
+        --brand-light: #ecfdf5;
+        --brand-dark: #064e3b;
+      {% endif %}
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-slate-50 dark:bg-darkblue-950 text-slate-800 dark:text-slate-100 font-sans antialiased transition-colors duration-200 min-h-screen flex flex-col justify-between">
+
+  <!-- Navigation -->
+  <nav class="bg-white dark:bg-darkblue-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        {% if school and school.logo %}
+          <img src="{{ school.logo.url }}" alt="{{ school.name }} Logo" class="h-10 w-auto max-h-10 object-contain">
+        {% else %}
+          <div class="w-10 h-10 bg-brand rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-sm">
+            {% if school %}{{ school.name|slice:":1" }}{% else %}Ε{% endif %}
+          </div>
+        {% endif %}
+        
+        <a href="{% url 'home' %}" class="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          {% if school %}
+            {{ school.name }}
+          {% else %}
+            Epsilon <span class="text-brand">LMS</span>
+          {% endif %}
+        </a>
+      </div>
+      
+      <!-- Navigation Links -->
+      <div class="hidden md:flex space-x-8 text-sm font-semibold text-slate-700 dark:text-slate-200">
+        {% block nav_links %}
+          <a href="#features" class="hover:text-brand transition">{% if school %}Academic Portal{% else %}Features{% endif %}</a>
+          <a href="#students" class="hover:text-brand transition">{% if school %}Students & Learning{% else %}Students{% endif %}</a>
+          {% if not school %}
+            <a href="#customers" class="hover:text-brand transition">Customers</a>
+            <a href="#pricing" class="hover:text-brand transition">Pricing</a>
+          {% else %}
+            <a href="#about" class="hover:text-brand transition">About Us</a>
+          {% endif %}
+        {% endblock %}
+      </div>
+
+      <div class="hidden md:flex items-center space-x-4">
+        <!-- Theme Switcher -->
+        <button id="theme-toggle" aria-label="Toggle theme" class="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+          <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          <svg id="theme-toggle-light-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+        </button>
+
+        {% if user.is_authenticated %}
+          <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Hi, {{ user.get_short_name|default:user.username }}</span>
+          <form method="post" action="{% url 'logout' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold px-4 py-2 rounded-lg transition">
+              Logout
+            </button>
+          </form>
+        {% else %}
+          <a href="/login/" class="text-sm font-semibold text-slate-700 dark:text-slate-200 hover:text-brand transition">Log In</a>
+          <a href="/login/" class="bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm transition">
+            {% if school %}School Login{% else %}Portal Access{% endif %}
+          </a>
+        {% endif %}
+      </div>
+
+      <!-- Mobile Hamburger -->
+      <div class="flex md:hidden items-center space-x-2">
+        <button id="theme-toggle-mobile" aria-label="Toggle theme mobile" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200">
+          <svg id="theme-toggle-dark-icon-mobile" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          <svg id="theme-toggle-light-icon-mobile" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+        </button>
+        <button id="menu-btn" aria-label="Open navigation menu" class="text-slate-700 dark:text-slate-200 focus:outline-none p-2">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Dropdown Menu -->
+    <div id="mobile-menu" class="hidden md:hidden bg-white dark:bg-darkblue-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 space-y-3">
+      {% block mobile_nav_links %}
+        <a href="#features" class="block text-slate-700 dark:text-slate-200 hover:text-brand font-semibold">{% if school %}Academic Portal{% else %}Features{% endif %}</a>
+        <a href="#students" class="block text-slate-700 dark:text-slate-200 hover:text-brand font-semibold">{% if school %}Students{% else %}Students{% endif %}</a>
+      {% endblock %}
+      <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col space-y-2">
+        {% if user.is_authenticated %}
+          <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="w-full text-center bg-red-600 text-white text-sm font-semibold py-2.5 rounded-lg">Logout</button>
+          </form>
+        {% else %}
+          <a href="/login/" class="text-center text-sm font-semibold text-slate-700 dark:text-slate-200 py-2">Log In</a>
+          <a href="/login/" class="text-center bg-brand hover:bg-brand-hover text-white text-sm font-semibold py-2.5 rounded-lg shadow-sm">
+            {% if school %}School Login{% else %}Portal Access{% endif %}
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="flex-grow">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-darkblue-950 text-slate-400 py-12 border-t border-slate-800 mt-auto">
+    <div class="max-w-7xl mx-auto px-6 grid md:grid-cols-4 gap-8 mb-8">
+      <div>
+        <div class="flex items-center space-x-2 text-white font-bold text-xl mb-4">
+          {% if school and school.logo %}
+            <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="h-8 w-auto max-h-8 object-contain">
+          {% else %}
+            <div class="w-8 h-8 bg-brand rounded flex items-center justify-center text-white">
+              {% if school %}{{ school.name|slice:":1" }}{% else %}Ε{% endif %}
+            </div>
+          {% endif %}
+          <span>{% if school %}{{ school.name }}{% else %}Epsilon LMS{% endif %}</span>
+        </div>
+        <p class="text-sm text-slate-400 leading-relaxed">
+          {% if school %}
+            Official academic portal for {{ school.name }}. Empowering educators, students, and parents.
+          {% else %}
+            Empowering Malawian educators and inspiring learners across the country with next-generation management technology.
+          {% endif %}
+        </p>
+      </div>
+      <div>
+        <h4 class="text-white font-bold mb-4 text-sm uppercase tracking-wider">Navigation</h4>
+        <ul class="space-y-2.5 text-sm font-medium">
+          <li><a href="#features" class="hover:text-white transition">Features</a></li>
+          <li><a href="/login/" class="hover:text-white transition">Portal Login</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-white font-bold mb-4 text-sm uppercase tracking-wider">Resources</h4>
+        <ul class="space-y-2.5 text-sm font-medium">
+          <li><a href="#" class="hover:text-white transition">Help Center</a></li>
+          <li><a href="#" class="hover:text-white transition">Privacy Policy</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-white font-bold mb-4 text-sm uppercase tracking-wider">Contact</h4>
+        <p class="text-sm">
+          {% if school and school.email %}
+            {{ school.email }}
+          {% else %}
+            support@epsilonlms.com
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="max-w-7xl mx-auto px-6 border-t border-slate-800/80 pt-6 text-center text-xs font-medium text-slate-500">
+      &copy; {% if school %}{{ school.name }} &bull; Powered by {% endif %}Epsilon Learning Management System. All rights reserved.
+    </div>
+  </footer>
+
+  <!-- Django Messages to SweetAlert2 Handler -->
+  {% if messages %}
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        {% for message in messages %}
+          Swal.fire({
+            icon: "{% if message.tags == 'error' %}error{% elif message.tags == 'warning' %}warning{% elif message.tags == 'info' %}info{% else %}success{% endif %}",
+            title: "{% if message.tags == 'error' %}Error!{% elif message.tags == 'warning' %}Warning{% elif message.tags == 'info' %}Information{% else %}Success!{% endif %}",
+            text: "{{ message|escapejs }}",
+            confirmButtonColor: "var(--brand-primary, #047857)",
+            timer: {% if message.tags == 'error' %}5000{% else %}3500{% endif %},
+            timerProgressBar: true
+          });
+        {% endfor %}
+      });
+    </script>
+  {% endif %}
+
+  <!-- Global Helper Function to Trigger Alerts manually from Frontend JS -->
+  <script>
+    function showAlert(icon, title, text) {
+      Swal.fire({
+        icon: icon,
+        title: title,
+        text: text,
+        confirmButtonColor: "var(--brand-primary, #047857)"
+      });
+    }
+
+    const menuBtn = document.getElementById('menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    menuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const themeToggleMobileBtn = document.getElementById('theme-toggle-mobile');
+    const darkIcon = document.getElementById('theme-toggle-dark-icon');
+    const lightIcon = document.getElementById('theme-toggle-light-icon');
+    const darkIconMobile = document.getElementById('theme-toggle-dark-icon-mobile');
+    const lightIconMobile = document.getElementById('theme-toggle-light-icon-mobile');
+
+    function toggleTheme() {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        darkIcon.classList.add('hidden');
+        lightIcon.classList.remove('hidden');
+        darkIconMobile.classList.add('hidden');
+        lightIconMobile.classList.remove('hidden');
+      } else {
+        document.documentElement.classList.add('dark');
+        darkIcon.classList.remove('hidden');
+        lightIcon.classList.add('hidden');
+        darkIconMobile.classList.remove('hidden');
+        lightIconMobile.classList.add('hidden');
+      }
+    }
+
+    themeToggleBtn.addEventListener('click', toggleTheme);
+    themeToggleMobileBtn.addEventListener('click', toggleTheme);
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

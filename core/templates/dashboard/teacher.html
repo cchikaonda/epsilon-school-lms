@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Portal | {{ school.name|default:"Epsilon LMS" }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 py-8">
+  <div class="mb-8 border-b border-slate-200 dark:border-slate-800 pb-4">
+    <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Teacher Workspace</h1>
+    <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Overview of your current courses and classes.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+      <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Mathematics - Form 4</h3>
+      <p class="text-slate-600 dark:text-slate-400 text-sm mb-4">Students: 32 | Next Period: 10:00 AM</p>
+      <a href="#" class="inline-block bg-brand hover:bg-brand-hover text-white text-xs font-semibold px-4 py-2 rounded-lg transition">Manage Class</a>
+    </div>
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
+      <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Physics - Form 3</h3>
+      <p class="text-slate-600 dark:text-slate-400 text-sm mb-4">Students: 28 | Next Period: 01:30 PM</p>
+      <a href="#" class="inline-block bg-brand hover:bg-brand-hover text-white text-xs font-semibold px-4 py-2 rounded-lg transition">Manage Class</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
