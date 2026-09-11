@@ -108,8 +108,9 @@
 
         {% if user.is_authenticated %}
           <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Hi, {{ user.get_short_name|default:user.username }}</span>
-          <form method="post" action="{% url 'logout' %}" class="inline">
+          <form method="post" action="{% url 'logout' %}?next=/" class="inline">
             {% csrf_token %}
+            <input type="hidden" name="next" value="/">
             <button type="submit" class="bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-sm font-semibold px-4 py-2 rounded-lg transition">
               Logout
             </button>
@@ -142,8 +143,9 @@
       {% endblock %}
       <div class="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col space-y-2">
         {% if user.is_authenticated %}
-          <form method="post" action="{% url 'logout' %}">
+          <form method="post" action="{% url 'logout' %}?next={{ request.path|urlencode }}">
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
             <button type="submit" class="w-full text-center bg-red-600 text-white text-sm font-semibold py-2.5 rounded-lg">Logout</button>
           </form>
         {% else %}

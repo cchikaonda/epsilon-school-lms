@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Accountant Dashboard | Epsilon LMS{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Header -->
+    <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Finance & Accounting</h1>
+            <p class="text-gray-600 mt-1">
+                Managing financial records and fee processing for 
+                <span class="font-semibold text-emerald-600">{{ school.name|default:"Your School" }}</span>.
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0 flex space-x-3">
+            <button class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition">
+                + Record Payment
+            </button>
+            <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium shadow-sm transition">
+                Export Reports
+            </button>
+        </div>
+    </div>
+
+    <!-- Stat Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Total Collections (Term)</div>
+            <div class="text-3xl font-extrabold text-gray-900">MWK 42,500,000</div>
+            <div class="mt-2 text-sm text-emerald-600 font-medium">↑ 12% from last term</div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Pending Balance</div>
+            <div class="text-3xl font-extrabold text-amber-600">MWK 8,200,000</div>
+            <div class="mt-2 text-sm text-amber-600 font-medium">145 overdue accounts</div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Payments Today</div>
+            <div class="text-3xl font-extrabold text-gray-900">MWK 1,450,000</div>
+            <div class="mt-2 text-sm text-gray-500">18 transactions processed</div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Active Students</div>
+            <div class="text-3xl font-extrabold text-gray-900">{{ school.students.count|default:"1,240" }}</div>
+            <div class="mt-2 text-sm text-emerald-600 font-medium">88% fully paid</div>
+        </div>
+    </div>
+
+    <!-- Main Content Sections -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Recent Transactions Table -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-gray-900">Recent Transactions</h2>
+                <a href="#" class="text-sm font-medium text-emerald-600 hover:text-emerald-700">View All</a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                            <th class="py-3 px-2">Student</th>
+                            <th class="py-3 px-2">Receipt #</th>
+                            <th class="py-3 px-2">Amount</th>
+                            <th class="py-3 px-2">Status</th>
+                            <th class="py-3 px-2">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 text-sm">
+                        <tr>
+                            <td class="py-3 px-2 font-medium text-gray-900">John Banda</td>
+                            <td class="py-3 px-2 text-gray-500">#REC-8901</td>
+                            <td class="py-3 px-2 font-semibold">MWK 150,000</td>
+                            <td class="py-3 px-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                    Completed
+                                </span>
+                            </td>
+                            <td class="py-3 px-2 text-gray-500">Today, 10:45 AM</td>
+                        </tr>
+                        <tr>
+                            <td class="py-3 px-2 font-medium text-gray-900">Mary Phiri</td>
+                            <td class="py-3 px-2 text-gray-500">#REC-8900</td>
+                            <td class="py-3 px-2 font-semibold">MWK 75,000</td>
+                            <td class="py-3 px-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                    Completed
+                                </span>
+                            </td>
+                            <td class="py-3 px-2 text-gray-500">Today, 09:15 AM</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Quick Financial Actions -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Quick Tasks</h2>
+            <div class="space-y-3">
+                <a href="#" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
+                    <p class="font-medium text-gray-900 text-sm">Generate Fee Structures</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Define invoices for upcoming academic term</p>
+                </a>
+                <a href="#" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
+                    <p class="font-medium text-gray-900 text-sm">Send Payment Reminders</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Notify parents with outstanding balances</p>
+                </a>
+                <a href="#" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
+                    <p class="font-medium text-gray-900 text-sm">Expense Logging</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Record operational bills and staff payroll</p>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

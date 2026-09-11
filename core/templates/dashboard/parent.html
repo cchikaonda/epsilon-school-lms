@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Parent Portal | Epsilon LMS{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Parent Dashboard</h1>
+        <p class="text-gray-600 mt-1">
+            Welcome back, <span class="font-semibold text-gray-900">{{ request.user.get_full_name|default:request.user.username }}</span>.
+            Monitoring performance for <span class="text-emerald-600 font-semibold">{{ school.name|default:"Epsilon School" }}</span>.
+        </p>
+    </div>
+
+    <!-- Children Overview Section -->
+    <div class="mb-8">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">Linked Students</h2>
+        
+        {% if children %}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for child in children %}
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative overflow-hidden">
+                        <div class="flex items-center space-x-4 mb-4">
+                            <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-lg">
+                                {{ child.user.first_name|slice:":1" }}{{ child.user.last_name|slice:":1" }}
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-gray-900 text-lg">{{ child.user.get_full_name }}</h3>
+                                <p class="text-xs text-gray-500">ID: {{ child.admission_number }} | Class: {{ child.classroom|default:"Form 1" }}</p>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-center">
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <span class="block text-xs text-gray-500">Attendance</span>
+                                <span class="font-bold text-emerald-600 text-base">96%</span>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <span class="block text-xs text-gray-500">Fee Balance</span>
+                                <span class="font-bold text-gray-900 text-base">MWK 0</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 pt-2">
+                            <a href="#" class="block text-center w-full py-2 bg-gray-900 hover:bg-black text-white text-sm font-medium rounded-lg transition">
+                                View Full Profile & Reports
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Placeholder Card if Children Queryset is empty -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-md">
+                <div class="flex items-center space-x-4 mb-4">
+                    <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-lg">
+                        SB
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 text-lg">Sample Student</h3>
+                        <p class="text-xs text-gray-500">ID: ADM-2026-001 | Form 2 East</p>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-center">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <span class="block text-xs text-gray-500">Attendance</span>
+                        <span class="font-bold text-emerald-600 text-base">94%</span>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <span class="block text-xs text-gray-500">Fee Balance</span>
+                        <span class="font-bold text-amber-600 text-base">MWK 25,000</span>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">
+                        Pay Fees Online
+                    </button>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Academic Alerts & Notices -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Recent Academic Results</h2>
+            <div class="space-y-3">
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-gray-900 text-sm">End of Term 1 Report Card</p>
+                        <p class="text-xs text-gray-500">Published on Aug 15, 2026</p>
+                    </div>
+                    <a href="{% url 'exam_results' %}" class="text-sm font-semibold text-emerald-600 hover:underline">Download PDF</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">School Announcements</h2>
+            <div class="space-y-3">
+                <div class="p-3 border-l-4 border-emerald-500 bg-emerald-50/30 rounded-r-lg">
+                    <p class="font-semibold text-gray-900 text-sm">Parent-Teacher Conference</p>
+                    <p class="text-xs text-gray-600 mt-1">Scheduled for next Friday at 09:00 AM in the main hall.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

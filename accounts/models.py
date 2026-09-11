@@ -101,6 +101,22 @@ class CustomUser(AbstractUser):
         return f"{self.first_name} {self.last_name} ({self.get_role_display()}) - {school_name}"
 
 
+class SchoolAdminProfile(models.Model):
+    """
+    Profile extension for school administrators.
+    """
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='school_admin_profile')
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='admin_profiles')
+    employee_id = models.CharField(max_length=50, blank=True, null=True)
+    office_extension = models.CharField(max_length=20, blank=True, null=True)
+
+    class Meta:
+        unique_together = ('school', 'employee_id')
+
+    def __str__(self):
+        return f"School Admin: {self.user.get_full_name()}"
+
+
 class TeacherProfile(models.Model):
     """
     Profile extension for faculty/teachers.
@@ -116,6 +132,22 @@ class TeacherProfile(models.Model):
 
     def __str__(self):
         return f"Teacher: {self.user.get_full_name()}"
+
+
+class AccountantProfile(models.Model):
+    """
+    Profile extension for school accountants and finance officers.
+    """
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='accountant_profile')
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='accountant_profiles')
+    employee_id = models.CharField(max_length=50)
+    designation = models.CharField(max_length=100, default='Bursar / Accountant')
+
+    class Meta:
+        unique_together = ('school', 'employee_id')
+
+    def __str__(self):
+        return f"Accountant: {self.user.get_full_name()}"
 
 
 class StudentProfile(models.Model):

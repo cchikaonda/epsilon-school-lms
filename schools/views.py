@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -8,6 +9,14 @@ from django.utils import timezone
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
+
+# Direct imports based on project structure
+from accounts.models import StudentProfile, CustomUser
+from students.models import Attendance
+from academics.models import Classroom, SubjectAssignment
+from schools.models import School, Term, AcademicYear
+
+logger = logging.getLogger(__name__)
 
 
 # ==========================================
@@ -46,20 +55,88 @@ def dashboard_redirect(request):
     user = request.user
     role = getattr(user, 'role', None) or getattr(user, 'user_type', None)
 
-    if role in ['ADMIN', 'SCHOOL_ADMIN'] or user.is_staff or user.is_superuser:
+    # Global/Platform Super Administrator
+    if user.is_superuser or role == 'ADMIN':
+        return redirect('system_admin_dashboard')
+
+    # Specific School Administrator
+    elif role == 'SCHOOL_ADMIN' or (user.is_staff and getattr(user, 'school', None)):
         return redirect('school_admin_dashboard')
+
+    # Accountant Role
+    elif role == 'ACCOUNTANT' or hasattr(user, 'accountant_profile'):
+        return redirect('accountant_dashboard')
+
+    # Parent Role
+    elif role == 'PARENT' or hasattr(user, 'parent_profile'):
+        return redirect('parent_dashboard')
+
+    # Teacher Role
     elif role == 'TEACHER' or hasattr(user, 'teacher_profile'):
         return redirect('teacher_dashboard')
 
+    # Default to Student Dashboard
     return redirect('student_dashboard')
+
+@login_required
+def system_admin_dashboard(request):
+    """Dashboard view for system-wide/platform super administrators."""
+    if not (request.user.is_superuser or getattr(request.user, 'role', None) in ['SUPER_ADMIN', 'ADMIN']):
+        return redirect('dashboard_redirect')
+        
+    schools = School.objects.all()
+    context = {'schools': schools}
+    return render(request, 'dashboard/system_admin.html', context)
 
 
 @login_required
 def school_admin_dashboard(request):
     """Dashboard view for school administrators."""
+    user = request.user
+    role = getattr(user, 'role', None) or getattr(user, 'user_type', None)
+
+    # 1. System/Platform Admin Check (Allows filtering by school_id query parameter)
+    if user.is_superuser or role == 'ADMIN':
+        school_id = request.GET.get('school_id')
+        school = School.objects.filter(id=school_id).first() if school_id else None
+        is_global_admin = True
+
+    # 2. Specific School Admin Check
+    else:
+        school = getattr(user, 'school', None) or get_tenant_from_request(request)
+        is_global_admin = False
+
+    context = {
+        'school': school,
+        'is_global_admin': is_global_admin,
+    }
+    return render(request, 'dashboard/school_admin.html', context)
+
+
+@login_required
+def accountant_dashboard(request):
+    """Dashboard view for school accountants."""
     school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
     context = {'school': school}
-    return render(request, 'dashboard/school_admin.html', context)
+    return render(request, 'dashboard/accountant.html', context)
+
+
+@login_required
+def parent_dashboard(request):
+    """Dashboard view for parents/guardians to view their linked children."""
+    user = request.user
+    school = getattr(user, 'school', None) or get_tenant_from_request(request)
+    
+    # Retrieve children linked to the parent
+    parent_profile = getattr(user, 'parent_profile', None)
+    children = parent_profile.children.all() if parent_profile and hasattr(parent_profile, 'children') else []
+
+    context = {
+        'school': school,
+        'parent_profile': parent_profile,
+        'children': children,
+    }
+    return render(request, 'dashboard/parent.html', context)
 
 
 @login_required
@@ -110,34 +187,10 @@ def attendance_record_view(request):
     return render(request, 'academics/attendance_record.html', {'school': school})
 
 
-import logging
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.db.models import Q, Avg
-from django.utils import timezone
-
-# Direct imports based on project structure
-from accounts.models import StudentProfile, CustomUser
-from students.models import Attendance
-from academics.models import Classroom, SubjectAssignment
-from schools.models import School, Term, AcademicYear
-
-logger = logging.getLogger(__name__)
-
-
-def get_model_safely(app_label, model_name):
-    """Utility helper to import models safely if app names vary."""
-    from django.apps import apps
-    try:
-        return apps.get_model(app_label, model_name)
-    except LookupError:
-        return None
-
-
 @login_required
 def student_dashboard(request):
     user = request.user
-    school = getattr(user, 'school', None)
+    school = getattr(user, 'school', None) or get_tenant_from_request(request)
 
     # 1. Retrieve StudentProfile
     student_profile = getattr(user, 'student_profile', None)
@@ -211,6 +264,7 @@ def student_dashboard(request):
 
     return render(request, 'dashboard/student.html', context)
 
+
 # ==========================================
 # REST Framework API Views & ViewSets
 # ==========================================
@@ -236,12 +290,16 @@ class SchoolDomainInfoView(APIView):
 
 
 class DynamicBaseViewSet(viewsets.ModelViewSet):
-    """Base ViewSet that dynamically binds to target models safely."""
+    """Base ViewSet that dynamically binds to target models safely and enforces multi-tenant scoping."""
 
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
     model_name = None
 
     def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return []
+
         if self.model_name:
             Model = (
                 get_model_safely('schools', self.model_name)
@@ -250,7 +308,19 @@ class DynamicBaseViewSet(viewsets.ModelViewSet):
                 or get_model_safely('accounts', self.model_name)
             )
             if Model:
-                return Model.objects.all()
+                queryset = Model.objects.all()
+                role = getattr(user, 'role', None) or getattr(user, 'user_type', None)
+
+                # Global System Administrators can access all records
+                if user.is_superuser or role == 'ADMIN':
+                    return queryset
+
+                # Specific School Admins, Accountants, Parents, and Teachers are scoped to their school
+                school = getattr(user, 'school', None) or get_tenant_from_request(self.request)
+                if school and hasattr(Model, 'school'):
+                    return queryset.filter(school=school)
+
+                return queryset
         return []
 
     def list(self, request, *args, **kwargs):
@@ -312,6 +382,12 @@ class TeacherViewSet(DynamicBaseViewSet):
     """API endpoint for Teachers."""
 
     model_name = 'TeacherProfile'
+
+
+class ParentViewSet(DynamicBaseViewSet):
+    """API endpoint for Parents."""
+
+    model_name = 'ParentProfile'
 
 
 class FacilityViewSet(DynamicBaseViewSet):

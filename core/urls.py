@@ -7,8 +7,10 @@ from django.urls import include, path
 from core.views import home
 from schools.views import (
     dashboard_redirect,
+    system_admin_dashboard,
     school_admin_dashboard,
-    student_dashboard,
+    accountant_dashboard,
+    parent_dashboard,
     teacher_dashboard,
     student_dashboard,
     profile_edit_view,
@@ -27,7 +29,10 @@ urlpatterns = [
 
     # Dashboards
     path('dashboard/', dashboard_redirect, name='dashboard_redirect'),
+    path('dashboard/system-admin/', system_admin_dashboard, name='system_admin_dashboard'),
     path('dashboard/admin/', school_admin_dashboard, name='school_admin_dashboard'),
+    path('dashboard/accountant/', accountant_dashboard, name='accountant_dashboard'),
+    path('dashboard/parent/', parent_dashboard, name='parent_dashboard'),
     path('dashboard/teacher/', teacher_dashboard, name='teacher_dashboard'),
     path('dashboard/student/', student_dashboard, name='student_dashboard'),
 

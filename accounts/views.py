@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout
-from django.shortcuts import redirect, render
+from django.http import HttpResponseRedirect
+from django.shortcuts import render
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
@@ -18,12 +19,29 @@ from .serializers import (
 )
 
 
+def get_full_origin(request):
+    """Helper to reconstruct full scheme + host + port (e.g. http://cognisphere.localhost:8000)"""
+    scheme = request.scheme
+    # HTTP_HOST includes port number if present (e.g., 'subdomain.domain.com:8000')
+    host = request.META.get('HTTP_HOST') or request.get_host()
+    return f"{scheme}://{host}"
+
+
 def logout_view(request):
+    next_url = request.GET.get('next') or request.POST.get('next')
     if request.user.is_authenticated:
         Token.objects.filter(user=request.user).delete()
         logout(request)
         messages.success(request, "You have been successfully logged out.")
-    return redirect('login')
+    
+    origin = get_full_origin(request)
+
+    if next_url:
+        if next_url.startswith('http'):
+            return HttpResponseRedirect(next_url)
+        return HttpResponseRedirect(f"{origin}{next_url}")
+        
+    return HttpResponseRedirect(f"{origin}/login/")
 
 
 class TenantLoginView(APIView):
@@ -32,7 +50,8 @@ class TenantLoginView(APIView):
 
     def get(self, request, *args, **kwargs):
         school = get_tenant_from_request(request)
-        return render(request, self.template_name, {"school": school})
+        next_url = request.GET.get("next", "")
+        return render(request, self.template_name, {"school": school, "next": next_url})
 
     def post(self, request, *args, **kwargs):
         serializer = TenantLoginSerializer(
@@ -42,7 +61,6 @@ class TenantLoginView(APIView):
         try:
             serializer.is_valid(raise_exception=True)
         except ValidationError as e:
-            # Capture DRF validation errors and push to Django Messages for UI rendering
             for field, errors in e.detail.items():
                 for error in errors:
                     messages.error(request, f"{error}")
@@ -51,7 +69,7 @@ class TenantLoginView(APIView):
         user = serializer.validated_data["user"]
         school = serializer.validated_data.get("school")
 
-        # Create Django Session so template views (@login_required) work properly
+        # Create Django Session so template views work properly
         login(request, user)
 
         # Success alert
@@ -60,9 +78,24 @@ class TenantLoginView(APIView):
         # Generate REST token for API calls
         token, _ = Token.objects.get_or_create(user=user)
 
+        # Reconstruct full origin (scheme + host + port)
+        origin = get_full_origin(request)
+        next_url = request.GET.get("next") or request.data.get("next")
+
+        if next_url:
+            target_url = next_url if next_url.startswith("http") else f"{origin}{next_url}"
+        else:
+            target_url = f"{origin}/dashboard/"
+
+        # If submitted via normal HTML form, force hard browser redirect to absolute URL
+        if request.content_type == "application/x-www-form-urlencoded":
+            return HttpResponseRedirect(target_url)
+
+        # Standard API Response with full redirect_url payload
         return Response(
             {
                 "token": token.key,
+                "redirect_url": target_url,
                 "user": {
                     "id": str(user.id),
                     "email": user.email,
