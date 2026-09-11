@@ -59,7 +59,7 @@ def school_admin_dashboard(request):
     """Dashboard view for school administrators."""
     school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
     context = {'school': school}
-    return render(request, 'dashboard/admin.html', context)
+    return render(request, 'dashboard/school_admin.html', context)
 
 
 @login_required
