@@ -14,12 +14,13 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     build-essential \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for Docker layer caching
 COPY requirements.txt .
 
-# Upgrade pip and install Python dependencies
+# Upgrade pip and install dependencies
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
