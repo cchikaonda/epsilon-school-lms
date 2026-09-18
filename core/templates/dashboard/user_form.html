@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Edit User | Epsilon LMS{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Edit User Account</h1>
+            <p class="text-sm text-gray-600">
+                Update account details, roles, and school assignments for 
+                <strong>{{ user_obj.get_username }}</strong>.
+            </p>
+        </div>
+        <a href="{% url 'user_manage' %}" class="text-sm text-emerald-600 hover:underline">&larr; Back to Users</a>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <form method="post" class="space-y-4">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <div class="pt-4 flex space-x-3">
+                <button type="submit" class="py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition">
+                    Save User Changes
+                </button>
+                <a href="{% url 'user_manage' %}" class="py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
