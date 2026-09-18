@@ -13,13 +13,16 @@
                 <span class="font-semibold text-emerald-600">Epsilon LMS</span>.
             </p>
         </div>
-        <div class="mt-4 md:mt-0 flex space-x-3">
-            <a href="{% url 'admin:index' %}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition">
-                Django Admin Portal
+        <div class="mt-4 md:mt-0 flex flex-wrap gap-2">
+            <a href="{% url 'admin:index' %}" class="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium shadow-sm transition text-sm">
+                Django Admin
             </a>
-            <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium shadow-sm transition">
-                + Provision New School
-            </button>
+            <a href="{% url 'school_manage' %}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition text-sm">
+                + Provision School
+            </a>
+            <a href="{% url 'user_manage' %}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition text-sm">
+                + New User
+            </a>
         </div>
     </div>
 
@@ -27,13 +30,13 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Registered Schools</div>
-            <div class="text-3xl font-extrabold text-gray-900">{{ schools.count|default:"12" }}</div>
+            <div class="text-3xl font-extrabold text-gray-900">{{ schools_count|default:"0" }}</div>
             <div class="mt-2 text-sm text-emerald-600 font-medium">Active tenants</div>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Total System Users</div>
-            <div class="text-3xl font-extrabold text-gray-900">14,850</div>
+            <div class="text-3xl font-extrabold text-gray-900">{{ users_count|default:"0" }}</div>
             <div class="mt-2 text-sm text-gray-500">Across all institutions</div>
         </div>
 
@@ -45,7 +48,7 @@
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">Active Subscriptions</div>
-            <div class="text-3xl font-extrabold text-gray-900">12 / 12</div>
+            <div class="text-3xl font-extrabold text-gray-900">{{ schools_count|default:"0" }} / {{ schools_count|default:"0" }}</div>
             <div class="mt-2 text-sm text-emerald-600 font-medium">100% current</div>
         </div>
     </div>
@@ -56,7 +59,7 @@
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-bold text-gray-900">School Tenants</h2>
-                <a href="{% url 'admin:index' %}" class="text-sm font-medium text-emerald-600 hover:text-emerald-700">Manage in Django Admin</a>
+                <a href="{% url 'school_manage' %}" class="text-sm font-medium text-emerald-600 hover:text-emerald-700">Manage All &rarr;</a>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
@@ -65,7 +68,7 @@
                             <th class="py-3 px-2">School Name</th>
                             <th class="py-3 px-2">Code</th>
                             <th class="py-3 px-2">Status</th>
-                            <th class="py-3 px-2">Action</th>
+                            <th class="py-3 px-2 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 text-sm">
@@ -74,26 +77,25 @@
                                 <td class="py-3 px-2 font-medium text-gray-900">{{ school_item.name }}</td>
                                 <td class="py-3 px-2 text-gray-500">{{ school_item.code|default:"SCH" }}</td>
                                 <td class="py-3 px-2">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                        Active
-                                    </span>
+                                    {% if school_item.is_active %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                            Active
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                            Inactive
+                                        </span>
+                                    {% endif %}
                                 </td>
-                                <td class="py-3 px-2">
-                                    <a href="#" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs">Configure</a>
+                                <td class="py-3 px-2 text-right space-x-2">
+                                    <a href="{% url 'school_admin_dashboard' %}?school_id={{ school_item.id }}" class="text-blue-600 hover:text-blue-800 font-medium text-xs">View Portal</a>
+                                    <a href="{% url 'school_edit' school_item.id %}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs">Edit</a>
+                                    <a href="{% url 'school_delete' school_item.id %}" class="text-red-600 hover:text-red-800 font-medium text-xs">Delete</a>
                                 </td>
                             </tr>
                         {% empty %}
                             <tr>
-                                <td class="py-3 px-2 font-medium text-gray-900">Demo Academy</td>
-                                <td class="py-3 px-2 text-gray-500">DEMO01</td>
-                                <td class="py-3 px-2">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                                        Active
-                                    </span>
-                                </td>
-                                <td class="py-3 px-2">
-                                    <a href="#" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs">Configure</a>
-                                </td>
+                                <td colspan="4" class="py-4 text-center text-gray-500">No schools provisioned yet.</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -105,17 +107,17 @@
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h2 class="text-lg font-bold text-gray-900 mb-4">Platform Administration</h2>
             <div class="space-y-3">
-                <a href="{% url 'admin:index' %}" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
+                <a href="{% url 'user_manage' %}" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
                     <p class="font-medium text-gray-900 text-sm">User & Access Management</p>
                     <p class="text-xs text-gray-500 mt-0.5">Manage accounts, roles, and global permissions</p>
                 </a>
-                <a href="#" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
-                    <p class="font-medium text-gray-900 text-sm">System Logs & Auditing</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Review security logs and authentication activity</p>
+                <a href="{% url 'school_manage' %}" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
+                    <p class="font-medium text-gray-900 text-sm">Tenant Provisioning</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Provision and configure new academic tenants</p>
                 </a>
-                <a href="#" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
-                    <p class="font-medium text-gray-900 text-sm">Database & Backups</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Monitor storage metrics and snapshot history</p>
+                <a href="{% url 'admin:index' %}" class="block p-3 rounded-lg border border-gray-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition">
+                    <p class="font-medium text-gray-900 text-sm">Django Low-Level Admin</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Direct backend database record access</p>
                 </a>
             </div>
         </div>

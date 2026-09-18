@@ -1,26 +1,28 @@
 import logging
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.apps import apps
 from django.db.models import Q, Avg
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-# Direct imports based on project structure
 from accounts.models import StudentProfile, CustomUser
 from students.models import Attendance
-from academics.models import Classroom, SubjectAssignment
+from academics.models import Classroom, SubjectAssignment, Subject
 from schools.models import School, Term, AcademicYear
+from .forms import SchoolForm, UserManagementForm
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 # ==========================================
-# Helper Utilities
+# Helper Utilities & Permissions
 # ==========================================
 
 def get_model_safely(app_label, model_name):
@@ -38,8 +40,15 @@ def get_tenant_from_request(request):
     return None
 
 
+def is_system_admin(user):
+    """Check if user has platform super administrator permissions."""
+    return user.is_authenticated and (
+        user.is_superuser or getattr(user, 'role', None) in ['SUPER_ADMIN', 'ADMIN']
+    )
+
+
 # ==========================================
-# Django UI Views
+# Authentication & Navigation Routing
 # ==========================================
 
 def home(request):
@@ -55,53 +64,146 @@ def dashboard_redirect(request):
     user = request.user
     role = getattr(user, 'role', None) or getattr(user, 'user_type', None)
 
-    # Global/Platform Super Administrator
-    if user.is_superuser or role == 'ADMIN':
+    if user.is_superuser or role in ['ADMIN', 'SUPER_ADMIN']:
         return redirect('system_admin_dashboard')
-
-    # Specific School Administrator
     elif role == 'SCHOOL_ADMIN' or (user.is_staff and getattr(user, 'school', None)):
         return redirect('school_admin_dashboard')
-
-    # Accountant Role
     elif role == 'ACCOUNTANT' or hasattr(user, 'accountant_profile'):
         return redirect('accountant_dashboard')
-
-    # Parent Role
     elif role == 'PARENT' or hasattr(user, 'parent_profile'):
         return redirect('parent_dashboard')
-
-    # Teacher Role
     elif role == 'TEACHER' or hasattr(user, 'teacher_profile'):
         return redirect('teacher_dashboard')
 
-    # Default to Student Dashboard
     return redirect('student_dashboard')
 
+
+# ==========================================
+# System Admin Management (Full CRUD)
+# ==========================================
+
 @login_required
+@user_passes_test(is_system_admin)
 def system_admin_dashboard(request):
-    """Dashboard view for system-wide/platform super administrators."""
-    if not (request.user.is_superuser or getattr(request.user, 'role', None) in ['SUPER_ADMIN', 'ADMIN']):
-        return redirect('dashboard_redirect')
-        
+    """Main control center displaying metrics and overall platform data."""
     schools = School.objects.all()
-    context = {'schools': schools}
+    users = User.objects.all().select_related('school')
+    
+    context = {
+        'schools': schools,
+        'schools_count': schools.count(),
+        'users_count': users.count(),
+        'recent_users': users.order_by('-date_joined')[:10],
+    }
     return render(request, 'dashboard/system_admin.html', context)
 
 
+# --- School CRUD ---
+
+@login_required
+@user_passes_test(is_system_admin)
+def school_list_create_view(request):
+    """List all schools and handle creation of new school tenants."""
+    schools = School.objects.all()
+    form = SchoolForm(request.POST or None)
+    
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'School tenant provisioned successfully!')
+        return redirect('school_manage')
+
+    return render(request, 'dashboard/schools_manage.html', {'schools': schools, 'form': form})
+
+
+@login_required
+@user_passes_test(is_system_admin)
+def school_edit_view(request, pk):
+    """Update details for a specific school."""
+    school = get_object_or_404(School, pk=pk)
+    form = SchoolForm(request.POST or None, instance=school)
+    
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'School "{school.name}" updated successfully!')
+        return redirect('school_manage')
+
+    return render(request, 'dashboard/school_form.html', {'form': form, 'school': school})
+
+
+@login_required
+@user_passes_test(is_system_admin)
+def school_delete_view(request, pk):
+    """Delete a school tenant."""
+    school = get_object_or_404(School, pk=pk)
+    if request.method == 'POST':
+        school_name = school.name
+        school.delete()
+        messages.success(request, f'School "{school_name}" deleted successfully.')
+        return redirect('school_manage')
+        
+    return render(request, 'dashboard/confirm_delete.html', {'object': school, 'type': 'School'})
+
+
+# --- User CRUD ---
+
+@login_required
+@user_passes_test(is_system_admin)
+def user_list_create_view(request):
+    """List system users and handle creation of new user accounts."""
+    users = User.objects.all().select_related('school')
+    form = UserManagementForm(request.POST or None)
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'User account created successfully!')
+        return redirect('user_manage')
+
+    return render(request, 'dashboard/users_manage.html', {'users': users, 'form': form})
+
+
+@login_required
+@user_passes_test(is_system_admin)
+def user_edit_view(request, pk):
+    """Edit user profiles, roles, and assigned schools."""
+    user_obj = get_object_or_404(User, pk=pk)
+    form = UserManagementForm(request.POST or None, instance=user_obj)
+
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'User "{user_obj.username}" updated successfully!')
+        return redirect('user_manage')
+
+    return render(request, 'dashboard/user_form.html', {'form': form, 'user_obj': user_obj})
+
+
+@login_required
+@user_passes_test(is_system_admin)
+def user_delete_view(request, pk):
+    """Remove a user account from the system."""
+    user_obj = get_object_or_404(User, pk=pk)
+    if request.method == 'POST':
+        username = user_obj.username
+        user_obj.delete()
+        messages.success(request, f'User account "{username}" deleted.')
+        return redirect('user_manage')
+
+    return render(request, 'dashboard/confirm_delete.html', {'object': user_obj, 'type': 'User'})
+
+
+# ==========================================
+# Role-Specific Dashboard Views
+# ==========================================
+
 @login_required
 def school_admin_dashboard(request):
-    """Dashboard view for school administrators."""
+    """Dashboard view for school-level administrators."""
     user = request.user
     role = getattr(user, 'role', None) or getattr(user, 'user_type', None)
 
-    # 1. System/Platform Admin Check (Allows filtering by school_id query parameter)
-    if user.is_superuser or role == 'ADMIN':
+    if user.is_superuser or role in ['ADMIN', 'SUPER_ADMIN']:
         school_id = request.GET.get('school_id')
         school = School.objects.filter(id=school_id).first() if school_id else None
         is_global_admin = True
-
-    # 2. Specific School Admin Check
     else:
         school = getattr(user, 'school', None) or get_tenant_from_request(request)
         is_global_admin = False
@@ -117,17 +219,14 @@ def school_admin_dashboard(request):
 def accountant_dashboard(request):
     """Dashboard view for school accountants."""
     school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
-    context = {'school': school}
-    return render(request, 'dashboard/accountant.html', context)
+    return render(request, 'dashboard/accountant.html', {'school': school})
 
 
 @login_required
 def parent_dashboard(request):
-    """Dashboard view for parents/guardians to view their linked children."""
+    """Dashboard view for parents to view linked children."""
     user = request.user
     school = getattr(user, 'school', None) or get_tenant_from_request(request)
-    
-    # Retrieve children linked to the parent
     parent_profile = getattr(user, 'parent_profile', None)
     children = parent_profile.children.all() if parent_profile and hasattr(parent_profile, 'children') else []
 
@@ -143,13 +242,84 @@ def parent_dashboard(request):
 def teacher_dashboard(request):
     """Dashboard view for teachers."""
     school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
-    context = {'school': school}
-    return render(request, 'dashboard/teacher.html', context)
+    return render(request, 'dashboard/teacher.html', {'school': school})
 
 
 @login_required
+def student_dashboard(request):
+    """Dashboard view for students."""
+    user = request.user
+    school = getattr(user, 'school', None) or get_tenant_from_request(request)
+
+    student_profile = getattr(user, 'student_profile', None)
+    if not student_profile:
+        student_profile = StudentProfile.objects.filter(user=user).first()
+
+    grade_level = None
+    enrolled_courses = []
+
+    if student_profile:
+        enrollment = (
+            student_profile.enrollments.filter(academic_year__is_current=True)
+            .select_related('classroom__grade_level', 'academic_year')
+            .first()
+            or student_profile.enrollments.select_related('classroom__grade_level')
+            .order_by('-enrolled_at')
+            .first()
+        )
+
+        if enrollment and enrollment.classroom:
+            classroom = enrollment.classroom
+            grade_level = (
+                f"{classroom.grade_level.name} {classroom.name}".strip()
+                if classroom.grade_level else classroom.name
+            )
+
+            assignments = SubjectAssignment.objects.filter(
+                classroom=classroom,
+                academic_year=enrollment.academic_year
+            ).select_related('subject', 'teacher__user')
+
+            enrolled_courses = [
+                {
+                    "name": sa.subject.name,
+                    "code": sa.subject.code,
+                    "teacher": sa.teacher.user if sa.teacher else None,
+                }
+                for sa in assignments
+            ]
+
+    if not grade_level and student_profile:
+        latest_attendance = Attendance.objects.filter(student=student_profile).select_related('classroom__grade_level').first()
+        if latest_attendance and latest_attendance.classroom:
+            cls = latest_attendance.classroom
+            grade_level = f"{cls.grade_level.name} {cls.name}".strip() if cls.grade_level else cls.name
+
+    student_id = student_profile.admission_number if student_profile else user.username
+
+    context = {
+        "school": school,
+        "student_profile": student_profile,
+        "grade_level": grade_level or "Unassigned Class",
+        "student_id": student_id,
+        "enrolled_courses": enrolled_courses,
+        "recent_results": [],
+        "pending_assignments": [],
+        "announcements": [],
+        "overall_gpa": "N/A",
+        "attendance_rate": "N/A",
+        "pending_tasks_count": 0,
+    }
+    return render(request, 'dashboard/student.html', context)
+
+
+# ==========================================
+# Additional Feature Views
+# ==========================================
+
+@login_required
 def profile_edit_view(request):
-    """View to handle profile updates for all user types."""
+    """Handles profile updates for users."""
     user = request.user
     if request.method == 'POST':
         user.first_name = request.POST.get('first_name', user.first_name)
@@ -168,101 +338,23 @@ def profile_edit_view(request):
 
 @login_required
 def exam_results_view(request):
-    """View for viewing exam results and report cards."""
+    """View exam results and report cards."""
     school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
     return render(request, 'academics/exam_results.html', {'school': school})
 
 
 @login_required
 def assignments_list_view(request):
-    """View for viewing coursework and assignment lists."""
+    """View coursework and assignments."""
     school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
     return render(request, 'academics/assignments_list.html', {'school': school})
 
 
 @login_required
 def attendance_record_view(request):
-    """View for checking presence logs and attendance history."""
+    """Check attendance records."""
     school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
     return render(request, 'academics/attendance_record.html', {'school': school})
-
-
-@login_required
-def student_dashboard(request):
-    user = request.user
-    school = getattr(user, 'school', None) or get_tenant_from_request(request)
-
-    # 1. Retrieve StudentProfile
-    student_profile = getattr(user, 'student_profile', None)
-    if not student_profile:
-        student_profile = StudentProfile.objects.filter(user=user).first()
-
-    # 2. Resolve Enrollment, Class, and Enrolled Courses
-    grade_level = None
-    enrolled_courses = []
-
-    if student_profile:
-        # Get active enrollment (pre-fetching classroom and grade level)
-        enrollment = (
-            student_profile.enrollments.filter(academic_year__is_current=True)
-            .select_related('classroom__grade_level', 'academic_year')
-            .first()
-            or student_profile.enrollments.select_related('classroom__grade_level')
-            .order_by('-enrolled_at')
-            .first()
-        )
-
-        if enrollment and enrollment.classroom:
-            classroom = enrollment.classroom
-            # Combine Grade Level name and Stream name (e.g., "Form 1 East")
-            if classroom.grade_level:
-                grade_level = f"{classroom.grade_level.name} {classroom.name}".strip()
-            else:
-                grade_level = classroom.name
-
-            # Fetch enrolled subjects mapped to this classroom & academic year
-            assignments = (
-                SubjectAssignment.objects.filter(
-                    classroom=classroom,
-                    academic_year=enrollment.academic_year
-                )
-                .select_related('subject', 'teacher__user')
-            )
-
-            enrolled_courses = [
-                {
-                    "name": sa.subject.name,
-                    "code": sa.subject.code,
-                    "teacher": sa.teacher.user if sa.teacher else None,
-                }
-                for sa in assignments
-            ]
-
-    # Fallback to Attendance if no enrollment record exists
-    if not grade_level and student_profile:
-        latest_attendance = Attendance.objects.filter(student=student_profile).select_related('classroom__grade_level').first()
-        if latest_attendance and latest_attendance.classroom:
-            cls = latest_attendance.classroom
-            grade_level = f"{cls.grade_level.name} {cls.name}".strip() if cls.grade_level else cls.name
-
-    # 3. Resolve Student ID
-    student_id = student_profile.admission_number if student_profile else user.username
-
-    context = {
-        "school": school,
-        "student_profile": student_profile,
-        "grade_level": grade_level or "Unassigned Class",
-        "student_id": student_id,
-        "enrolled_courses": enrolled_courses,
-        "recent_results": [],
-        "pending_assignments": [],
-        "announcements": [],
-        "overall_gpa": "N/A",
-        "attendance_rate": "N/A",
-        "pending_tasks_count": 0,
-    }
-
-    return render(request, 'dashboard/student.html', context)
 
 
 # ==========================================
@@ -270,7 +362,7 @@ def student_dashboard(request):
 # ==========================================
 
 class SchoolDomainInfoView(APIView):
-    """API view that returns current school domain and tenant information."""
+    """API view returning current school domain and tenant information."""
 
     permission_classes = [permissions.AllowAny]
 
@@ -290,7 +382,7 @@ class SchoolDomainInfoView(APIView):
 
 
 class DynamicBaseViewSet(viewsets.ModelViewSet):
-    """Base ViewSet that dynamically binds to target models safely and enforces multi-tenant scoping."""
+    """Base ViewSet dynamically binding target models safely and enforcing multi-tenant scoping."""
 
     permission_classes = [permissions.IsAuthenticated]
     model_name = None
@@ -311,11 +403,9 @@ class DynamicBaseViewSet(viewsets.ModelViewSet):
                 queryset = Model.objects.all()
                 role = getattr(user, 'role', None) or getattr(user, 'user_type', None)
 
-                # Global System Administrators can access all records
-                if user.is_superuser or role == 'ADMIN':
+                if user.is_superuser or role in ['ADMIN', 'SUPER_ADMIN']:
                     return queryset
 
-                # Specific School Admins, Accountants, Parents, and Teachers are scoped to their school
                 school = getattr(user, 'school', None) or get_tenant_from_request(self.request)
                 if school and hasattr(Model, 'school'):
                     return queryset.filter(school=school)
@@ -331,66 +421,34 @@ class DynamicBaseViewSet(viewsets.ModelViewSet):
 
 
 class SchoolViewSet(DynamicBaseViewSet):
-    """API endpoint for Schools."""
-
     model_name = 'School'
 
-
 class SchoolSettingViewSet(DynamicBaseViewSet):
-    """API endpoint for School Settings."""
-
     model_name = 'SchoolSetting'
 
-
 class AcademicYearViewSet(DynamicBaseViewSet):
-    """API endpoint for Academic Years."""
-
     model_name = 'AcademicYear'
 
-
 class TermViewSet(DynamicBaseViewSet):
-    """API endpoint for Academic Terms."""
-
     model_name = 'Term'
 
-
 class ClassViewSet(DynamicBaseViewSet):
-    """API endpoint for Classes/Grades."""
-
     model_name = 'Class'
 
-
 class SubjectViewSet(DynamicBaseViewSet):
-    """API endpoint for Subjects/Courses."""
-
     model_name = 'Subject'
 
-
 class DepartmentViewSet(DynamicBaseViewSet):
-    """API endpoint for Departments."""
-
     model_name = 'Department'
 
-
 class StudentViewSet(DynamicBaseViewSet):
-    """API endpoint for Students."""
-
     model_name = 'StudentProfile'
 
-
 class TeacherViewSet(DynamicBaseViewSet):
-    """API endpoint for Teachers."""
-
     model_name = 'TeacherProfile'
 
-
 class ParentViewSet(DynamicBaseViewSet):
-    """API endpoint for Parents."""
-
     model_name = 'ParentProfile'
 
-
 class FacilityViewSet(DynamicBaseViewSet):
-    """API endpoint for School Facilities."""
-
     model_name = 'Facility'

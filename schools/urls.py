@@ -19,6 +19,21 @@ urlpatterns = [
     path('dashboard/teacher/', views.teacher_dashboard, name='teacher_dashboard'),
     path('dashboard/student/', views.student_dashboard, name='student_dashboard'),
 
+
+
+    path('dashboard/system-admin/', views.system_admin_dashboard, name='system_admin_dashboard'),
+    
+    # Schools CRUD (Updated to uuid:pk)
+    path('dashboard/system-admin/schools/', views.school_list_create_view, name='school_manage'),
+    path('dashboard/system-admin/schools/<uuid:pk>/edit/', views.school_edit_view, name='school_edit'),
+    path('dashboard/system-admin/schools/<uuid:pk>/delete/', views.school_delete_view, name='school_delete'),
+
+    # Users CRUD (Use uuid or int depending on your CustomUser primary key type)
+    path('dashboard/system-admin/users/', views.user_list_create_view, name='user_manage'),
+    path('dashboard/system-admin/users/<uuid:pk>/edit/', views.user_edit_view, name='user_edit'),
+    path('dashboard/system-admin/users/<uuid:pk>/delete/', views.user_delete_view, name='user_delete'),
+
+
     # Public Tenant Info Endpoint
     path('api/domain-info/', views.SchoolDomainInfoView.as_view(), name='school_domain_info'),
 

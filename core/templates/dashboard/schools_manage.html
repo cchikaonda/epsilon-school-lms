@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Schools | Epsilon LMS{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-7xl">
+    <div class="mb-6 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">School Tenant Management</h1>
+            <p class="text-sm text-gray-600">Provision new institutions or edit existing tenants.</p>
+        </div>
+        <a href="{% url 'system_admin_dashboard' %}" class="text-sm text-emerald-600 hover:underline">&larr; Back to Dashboard</a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Provision Form -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Provision New School</h2>
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <button type="submit" class="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium shadow-sm transition">
+                    Save School
+                </button>
+            </form>
+        </div>
+
+        <!-- Schools List -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Registered Schools</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase">
+                            <th class="py-2 px-2">Name</th>
+                            <th class="py-2 px-2">Code</th>
+                            <th class="py-2 px-2">Status</th>
+                            <th class="py-2 px-2 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for school in schools %}
+                            <tr>
+                                <td class="py-3 px-2 font-medium text-gray-900">{{ school.name }}</td>
+                                <td class="py-3 px-2 text-gray-500">{{ school.code }}</td>
+                                <td class="py-3 px-2">
+                                    {% if school.is_active %}
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Active</span>
+                                    {% else %}
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td class="py-3 px-2 text-right space-x-2">
+                                    <a href="{% url 'school_edit' school.id %}" class="text-emerald-600 hover:text-emerald-800 font-medium text-xs">Edit</a>
+                                    <a href="{% url 'school_delete' school.id %}" class="text-red-600 hover:text-red-800 font-medium text-xs">Delete</a>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr><td colspan="4" class="py-4 text-center text-gray-500">No schools created yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
