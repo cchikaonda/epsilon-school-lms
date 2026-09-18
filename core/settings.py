@@ -32,6 +32,12 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     ".localhost",
+    "kakuleacademy.localhost",
+    "kakuleacademy.localhost:8000",
+    "kakeleacademy.localhost",
+    "kakeleacademy.localhost:8000",
+    "kakuleacademy.epsilonlms.tech",
+    "kakeleacademy.epsilonlms.tech",
 
     # Production domain
     "epsilonlms.tech",
