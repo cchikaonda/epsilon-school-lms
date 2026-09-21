@@ -1,4 +1,5 @@
 import logging
+import uuid
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -11,9 +12,9 @@ from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
-from accounts.models import StudentProfile, CustomUser
+from accounts.models import StudentProfile, CustomUser, TeacherProfile, ParentProfile
 from students.models import Attendance
-from academics.models import Classroom, SubjectAssignment, Subject
+from academics.models import GradeLevel, Classroom, SubjectAssignment, Subject
 from schools.models import School, Term, AcademicYear
 from .forms import SchoolForm, UserManagementForm
 
@@ -193,27 +194,169 @@ def user_delete_view(request, pk):
 # ==========================================
 # Role-Specific Dashboard Views
 # ==========================================
-
 @login_required
 def school_admin_dashboard(request):
-    """Dashboard view for school-level administrators."""
-    user = request.user
-    role = getattr(user, 'role', None) or getattr(user, 'user_type', None)
+    school = request.user.school
 
-    if user.is_superuser or role in ['ADMIN', 'SUPER_ADMIN']:
-        school_id = request.GET.get('school_id')
-        school = School.objects.filter(id=school_id).first() if school_id else None
-        is_global_admin = True
-    else:
-        school = getattr(user, 'school', None) or get_tenant_from_request(request)
-        is_global_admin = False
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # Action 1: Create Academic Year
+        if action == 'create_academic_year':
+            name = request.POST.get('name')
+            start_date = request.POST.get('start_date')
+            end_date = request.POST.get('end_date')
+            is_current = request.POST.get('is_current') == 'on'
+
+            if AcademicYear.objects.filter(school=school, name=name).exists():
+                messages.error(request, f'Academic year "{name}" already exists.')
+            else:
+                AcademicYear.objects.create(
+                    school=school,
+                    name=name,
+                    start_date=start_date,
+                    end_date=end_date,
+                    is_current=is_current
+                )
+                messages.success(request, f'Academic year "{name}" created successfully.')
+
+        # Action 2: Create Grade Level
+        elif action == 'create_grade_level':
+            name = request.POST.get('name')
+            level_order = request.POST.get('level_order', 1)
+
+            if GradeLevel.objects.filter(school=school, name=name).exists():
+                messages.error(request, f'Grade level "{name}" already exists.')
+            else:
+                GradeLevel.objects.create(
+                    school=school,
+                    name=name,
+                    level_order=level_order
+                )
+                messages.success(request, f'Grade level "{name}" created successfully.')
+
+        # Action 3: Create User Account
+        elif action == 'create_user':
+            first_name = request.POST.get('first_name')
+            last_name = request.POST.get('last_name')
+            email = request.POST.get('email')
+            role = request.POST.get('role')
+            password = request.POST.get('password')
+
+            if CustomUser.objects.filter(email=email).exists():
+                messages.error(request, f'User with email {email} already exists.')
+            else:
+                user = CustomUser.objects.create_user(
+                    email=email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    role=role,
+                    school=school
+                )
+                if role == 'TEACHER':
+                    TeacherProfile.objects.get_or_create(user=user, school=school)
+                elif role == 'STUDENT':
+                    StudentProfile.objects.get_or_create(user=user, school=school)
+
+                messages.success(request, f'Account for {user.get_full_name()} created successfully.')
+
+        # Action 4: Create Classroom / Stream
+        elif action == 'create_class':
+            class_name = request.POST.get('class_name')
+            grade_level_id = request.POST.get('grade_level_id')
+
+            if grade_level_id:
+                grade_level = GradeLevel.objects.get(id=grade_level_id, school=school)
+            else:
+                grade_level, _ = GradeLevel.objects.get_or_create(
+                    school=school,
+                    name="General Grade",
+                    defaults={'level_order': 1}
+                )
+
+            if Classroom.objects.filter(school=school, grade_level=grade_level, name=class_name).exists():
+                messages.error(request, f'Classroom "{grade_level.name} - {class_name}" already exists.')
+            else:
+                Classroom.objects.create(
+                    school=school,
+                    grade_level=grade_level,
+                    name=class_name
+                )
+                messages.success(request, f'Classroom "{grade_level.name} - {class_name}" created successfully.')
+
+        # Action 5: Create Subject
+        elif action == 'create_subject':
+            subject_name = request.POST.get('subject_name')
+            code = request.POST.get('code')
+            is_elective = request.POST.get('is_elective') == 'on'
+
+            if Subject.objects.filter(school=school, code=code).exists():
+                messages.error(request, f'Subject with code "{code}" already exists.')
+            else:
+                Subject.objects.create(
+                    school=school,
+                    name=subject_name,
+                    code=code,
+                    is_elective=is_elective
+                )
+                messages.success(request, f'Subject "{subject_name} ({code})" created successfully.')
+
+        # Action 6: Assign Teacher & Subject to Class
+        elif action == 'assign_class':
+            class_id = request.POST.get('class_id')
+            subject_id = request.POST.get('subject_id')
+            teacher_id = request.POST.get('teacher_id')
+            academic_year_id = request.POST.get('academic_year_id')
+
+            classroom = Classroom.objects.get(id=class_id, school=school)
+            subject = Subject.objects.get(id=subject_id, school=school)
+            teacher = TeacherProfile.objects.get(id=teacher_id, school=school) if teacher_id else None
+
+            if academic_year_id:
+                academic_year = AcademicYear.objects.get(id=academic_year_id, school=school)
+            else:
+                academic_year = AcademicYear.objects.filter(school=school, is_current=True).first() or school.academic_years.first()
+
+            if academic_year:
+                SubjectAssignment.objects.update_or_create(
+                    school=school,
+                    academic_year=academic_year,
+                    classroom=classroom,
+                    subject=subject,
+                    defaults={'teacher': teacher}
+                )
+                teacher_name = teacher.user.get_full_name() if teacher else "Unassigned"
+                messages.success(request, f'Assigned {subject.name} in {classroom} to {teacher_name}.')
+            else:
+                messages.error(request, 'Please create an academic year first before assigning subjects.')
+
+        return redirect('school_admin_dashboard')
+
+    # Context Data
+    academic_years = AcademicYear.objects.filter(school=school)
+    grade_levels = GradeLevel.objects.filter(school=school)
+    classrooms = Classroom.objects.filter(school=school).select_related('grade_level')
+    subjects = Subject.objects.filter(school=school)
+    teachers = TeacherProfile.objects.filter(school=school).select_related('user')
+    students = StudentProfile.objects.filter(school=school).select_related('user')
+    assignments = SubjectAssignment.objects.filter(school=school).select_related(
+        'classroom__grade_level', 'subject', 'teacher__user', 'academic_year'
+    )
 
     context = {
         'school': school,
-        'is_global_admin': is_global_admin,
+        'academic_years': academic_years,
+        'grade_levels': grade_levels,
+        'classrooms': classrooms,
+        'subjects': subjects,
+        'teachers': teachers,
+        'students': students,
+        'assignments': assignments,
+        'student_count': students.count(),
+        'teacher_count': teachers.count(),
     }
     return render(request, 'dashboard/school_admin.html', context)
-
 
 @login_required
 def accountant_dashboard(request):

@@ -3,28 +3,497 @@
 {% block title %}Admin Dashboard | {{ school.name|default:"Epsilon LMS" }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-6 py-8">
+<div class="max-w-7xl mx-auto px-6 py-8" x-data="{ activeTab: 'academic_year' }">
+  
+  <!-- Header -->
   <div class="mb-8 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-4">
     <div>
       <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">School Administrator Panel</h1>
-      <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Manage school settings, academic terms, and accounts for {{ school.name }}.</p>
+      <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Manage academic years, subjects, classrooms, and user accounts for {{ school.name }}.</p>
     </div>
     <span class="bg-brand-light text-brand px-3 py-1 rounded-full text-xs font-bold border border-brand/20">Admin Access</span>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
-      <p class="text-xs font-semibold text-brand uppercase tracking-wider">Total Enrolled Students</p>
-      <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">{{ school.student_count|default:"1,240" }}</p>
+  <!-- Key Metrics with Quick Jump Navigation -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+    <button @click="activeTab = 'academic_year'" class="text-left bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm hover:border-brand/50 transition-all group cursor-pointer">
+      <div class="flex justify-between items-center">
+        <p class="text-xs font-semibold text-brand uppercase tracking-wider">Academic Years</p>
+        <span class="text-slate-400 group-hover:text-brand transition-colors text-xs font-semibold">View →</span>
+      </div>
+      <p class="text-2xl font-extrabold text-slate-900 dark:text-white mt-2">{{ academic_years|length }}</p>
+    </button>
+
+    <button @click="activeTab = 'users'" class="text-left bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm hover:border-brand/50 transition-all group cursor-pointer">
+      <div class="flex justify-between items-center">
+        <p class="text-xs font-semibold text-brand uppercase tracking-wider">Enrolled Students</p>
+        <span class="text-slate-400 group-hover:text-brand transition-colors text-xs font-semibold">View →</span>
+      </div>
+      <p class="text-2xl font-extrabold text-slate-900 dark:text-white mt-2">{{ student_count|default:"0" }}</p>
+    </button>
+
+    <button @click="activeTab = 'users'" class="text-left bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm hover:border-brand/50 transition-all group cursor-pointer">
+      <div class="flex justify-between items-center">
+        <p class="text-xs font-semibold text-brand uppercase tracking-wider">Teaching Staff</p>
+        <span class="text-slate-400 group-hover:text-brand transition-colors text-xs font-semibold">View →</span>
+      </div>
+      <p class="text-2xl font-extrabold text-slate-900 dark:text-white mt-2">{{ teacher_count|default:"0" }}</p>
+    </button>
+
+    <button @click="activeTab = 'subjects'" class="text-left bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm hover:border-brand/50 transition-all group cursor-pointer">
+      <div class="flex justify-between items-center">
+        <p class="text-xs font-semibold text-brand uppercase tracking-wider">Subjects</p>
+        <span class="text-slate-400 group-hover:text-brand transition-colors text-xs font-semibold">Manage →</span>
+      </div>
+      <p class="text-2xl font-extrabold text-slate-900 dark:text-white mt-2">{{ subjects|length }}</p>
+    </button>
+
+    <button @click="activeTab = 'classes'" class="text-left bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm hover:border-brand/50 transition-all group cursor-pointer">
+      <div class="flex justify-between items-center">
+        <p class="text-xs font-semibold text-brand uppercase tracking-wider">Class Streams</p>
+        <span class="text-slate-400 group-hover:text-brand transition-colors text-xs font-semibold">Manage →</span>
+      </div>
+      <p class="text-2xl font-extrabold text-slate-900 dark:text-white mt-2">{{ classrooms|length }}</p>
+    </button>
+  </div>
+
+  <!-- Messages -->
+  {% if messages %}
+    <div class="mb-6 space-y-2">
+      {% for message in messages %}
+        <div class="p-4 rounded-xl text-sm font-medium {% if message.tags == 'error' %}bg-red-100 text-red-800 border border-red-200{% else %}bg-green-100 text-green-800 border border-green-200{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
     </div>
-    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
-      <p class="text-xs font-semibold text-brand uppercase tracking-wider">Active Teaching Staff</p>
-      <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">{{ school.staff_count|default:"85" }}</p>
-    </div>
-    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
-      <p class="text-xs font-semibold text-brand uppercase tracking-wider">Academic Term</p>
-      <p class="text-3xl font-extrabold text-slate-900 dark:text-white mt-2">Term 2 Active</p>
+  {% endif %}
+
+  <!-- Tab Navigation -->
+  <div class="sticky top-0 z-10 bg-slate-50 dark:bg-slate-900/90 backdrop-blur-md pt-2 pb-1 border-b border-slate-200 dark:border-slate-800 mb-6">
+    <div class="flex space-x-2 sm:space-x-4 overflow-x-auto no-scrollbar">
+      <button @click="activeTab = 'academic_year'" 
+        :class="activeTab === 'academic_year' ? 'border-brand text-brand font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" 
+        class="pb-3 px-3 border-b-2 text-sm transition-colors whitespace-nowrap flex items-center gap-2">
+        <span>Academic Years</span>
+      </button>
+
+      <button @click="activeTab = 'users'" 
+        :class="activeTab === 'users' ? 'border-brand text-brand font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" 
+        class="pb-3 px-3 border-b-2 text-sm transition-colors whitespace-nowrap flex items-center gap-2">
+        <span>Users & Accounts</span>
+      </button>
+
+      <button @click="activeTab = 'classes'" 
+        :class="activeTab === 'classes' ? 'border-brand text-brand font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" 
+        class="pb-3 px-3 border-b-2 text-sm transition-colors whitespace-nowrap flex items-center gap-2">
+        <span>Classrooms & Grades</span>
+      </button>
+
+      <button @click="activeTab = 'subjects'" 
+        :class="activeTab === 'subjects' ? 'border-brand text-brand font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" 
+        class="pb-3 px-3 border-b-2 text-sm transition-colors whitespace-nowrap flex items-center gap-2">
+        <span>Subjects Catalog</span>
+      </button>
+
+      <button @click="activeTab = 'assignments'" 
+        :class="activeTab === 'assignments' ? 'border-brand text-brand font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" 
+        class="pb-3 px-3 border-b-2 text-sm transition-colors whitespace-nowrap flex items-center gap-2">
+        <span>Teaching Assignments</span>
+      </button>
     </div>
   </div>
+
+  <!-- Tab 0: Academic Year Management -->
+  <div x-show="activeTab === 'academic_year'" x-transition class="space-y-6">
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Create Academic Year</h2>
+      <form method="POST" action="{% url 'school_admin_dashboard' %}" class="space-y-4 max-w-3xl">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_academic_year">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Academic Year Name</label>
+          <input type="text" name="name" placeholder="e.g. 2025/2026" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Start Date</label>
+            <input type="date" name="start_date" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">End Date</label>
+            <input type="date" name="end_date" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-2">
+          <input type="checkbox" id="is_current" name="is_current" class="rounded border-slate-300 dark:border-slate-700 text-brand focus:ring-brand">
+          <label for="is_current" class="text-sm font-medium text-slate-700 dark:text-slate-300">Set as Current Active Session</label>
+        </div>
+
+        <button type="submit" class="bg-brand text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand/90 transition-colors">
+          Save Academic Year
+        </button>
+      </form>
+    </div>
+
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <h3 class="text-md font-bold text-slate-900 dark:text-white mb-3">Academic Sessions Directory</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 dark:bg-slate-800 uppercase text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="p-3">Session Name</th>
+              <th class="p-3">Start Date</th>
+              <th class="p-3">End Date</th>
+              <th class="p-3">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+            {% for ay in academic_years %}
+              <tr>
+                <td class="p-3 font-semibold text-slate-900 dark:text-white">{{ ay.name }}</td>
+                <td class="p-3 text-slate-600 dark:text-slate-400">{{ ay.start_date }}</td>
+                <td class="p-3 text-slate-600 dark:text-slate-400">{{ ay.end_date }}</td>
+                <td class="p-3">
+                  {% if ay.is_current %}
+                    <span class="bg-green-100 text-green-800 border border-green-200 text-xs px-2 py-0.5 rounded-full font-bold">Active</span>
+                  {% else %}
+                    <span class="bg-slate-100 text-slate-600 border border-slate-200 text-xs px-2 py-0.5 rounded-full">Inactive</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="p-3 text-slate-500">No academic years created yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 1: User Management -->
+  <div x-show="activeTab === 'users'" x-transition class="space-y-6">
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Create New User Account</h2>
+      <form method="POST" action="{% url 'school_admin_dashboard' %}" class="space-y-4 max-w-3xl">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_user">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">First Name</label>
+            <input type="text" name="first_name" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Last Name</label>
+            <input type="text" name="last_name" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Email Address</label>
+            <input type="email" name="email" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Role</label>
+            <select name="role" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+              <option value="TEACHER">Teacher</option>
+              <option value="STUDENT">Student</option>
+              <option value="PARENT">Parent</option>
+              <option value="ACCOUNTANT">Accountant</option>
+              <option value="SCHOOL_ADMIN">School Admin</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Temporary Password</label>
+          <input type="password" name="password" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+        </div>
+
+        <button type="submit" class="bg-brand text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand/90 transition-colors">
+          Create Account
+        </button>
+      </form>
+    </div>
+
+    <!-- Active Teachers & Students List -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <h3 class="text-md font-bold text-slate-900 dark:text-white mb-3">Teaching Staff</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 dark:bg-slate-800 uppercase text-slate-500 dark:text-slate-400">
+              <tr>
+                <th class="p-3">Name</th>
+                <th class="p-3">Email</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+              {% for t in teachers %}
+                <tr>
+                  <td class="p-3 font-semibold text-slate-900 dark:text-white">{{ t.user.get_full_name }}</td>
+                  <td class="p-3 text-slate-600 dark:text-slate-400">{{ t.user.email }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="p-3 text-slate-500">No teachers registered yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <h3 class="text-md font-bold text-slate-900 dark:text-white mb-3">Enrolled Students</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 dark:bg-slate-800 uppercase text-slate-500 dark:text-slate-400">
+              <tr>
+                <th class="p-3">Name</th>
+                <th class="p-3">Email</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+              {% for s in students %}
+                <tr>
+                  <td class="p-3 font-semibold text-slate-900 dark:text-white">{{ s.user.get_full_name }}</td>
+                  <td class="p-3 text-slate-600 dark:text-slate-400">{{ s.user.email }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="2" class="p-3 text-slate-500">No students registered yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Classroom & Grade Level Management -->
+  <div x-show="activeTab === 'classes'" x-transition class="space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Create Grade Level -->
+      <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Create Grade Level</h2>
+        <form method="POST" action="{% url 'school_admin_dashboard' %}" class="space-y-4">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create_grade_level">
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Grade Name</label>
+            <input type="text" name="name" placeholder="e.g. Form 1, Standard 8" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Sorting Order</label>
+            <input type="number" name="level_order" value="1" min="1" class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+
+          <button type="submit" class="bg-brand text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand/90 transition-colors">
+            Save Grade Level
+          </button>
+        </form>
+      </div>
+
+      <!-- Create Stream -->
+      <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Create Class Stream</h2>
+        <form method="POST" action="{% url 'school_admin_dashboard' %}" class="space-y-4">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="create_class">
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Grade Level</label>
+            <select name="grade_level_id" class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+              {% for gl in grade_levels %}
+                <option value="{{ gl.id }}">{{ gl.name }}</option>
+              {% empty %}
+                <option value="">No Grade Levels Yet</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Stream Name</label>
+            <input type="text" name="class_name" placeholder="e.g. East, Blue, or Alpha" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+
+          <button type="submit" class="bg-brand text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand/90 transition-colors">
+            Save Stream/Classroom
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Active Classrooms List -->
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <h3 class="text-md font-bold text-slate-900 dark:text-white mb-3">Existing Class Streams</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 dark:bg-slate-800 uppercase text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="p-3">Grade Level</th>
+              <th class="p-3">Stream Name</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+            {% for c in classrooms %}
+              <tr>
+                <td class="p-3 font-semibold text-slate-900 dark:text-white">{{ c.grade_level.name }}</td>
+                <td class="p-3 text-slate-600 dark:text-slate-400">{{ c.name }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="2" class="p-3 text-slate-500">No class streams created yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Subject Management -->
+  <div x-show="activeTab === 'subjects'" x-transition class="space-y-6">
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Create New Subject</h2>
+      <form method="POST" action="{% url 'school_admin_dashboard' %}" class="space-y-4 max-w-3xl">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="create_subject">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Subject Name</label>
+            <input type="text" name="subject_name" placeholder="e.g. Mathematics" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Subject Code</label>
+            <input type="text" name="code" placeholder="e.g. MATH101" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-2">
+          <input type="checkbox" id="is_elective" name="is_elective" class="rounded border-slate-300 dark:border-slate-700 text-brand focus:ring-brand">
+          <label for="is_elective" class="text-sm font-medium text-slate-700 dark:text-slate-300">Is Elective Subject?</label>
+        </div>
+
+        <button type="submit" class="bg-brand text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand/90 transition-colors">
+          Save Subject
+        </button>
+      </form>
+    </div>
+
+    <!-- Active Subjects List -->
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <h3 class="text-md font-bold text-slate-900 dark:text-white mb-3">Existing Subjects</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 dark:bg-slate-800 uppercase text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="p-3">Code</th>
+              <th class="p-3">Name</th>
+              <th class="p-3">Type</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+            {% for s in subjects %}
+              <tr>
+                <td class="p-3 font-semibold text-slate-900 dark:text-white">{{ s.code }}</td>
+                <td class="p-3">{{ s.name }}</td>
+                <td class="p-3">{% if s.is_elective %}Elective{% else %}Compulsory{% endif %}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3" class="p-3 text-slate-500">No subjects created yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 4: Teacher & Subject Assignments -->
+  <div x-show="activeTab === 'assignments'" x-transition class="space-y-6">
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <h2 class="text-lg font-bold text-slate-900 dark:text-white mb-4">Assign Teacher & Subject to Class</h2>
+      <form method="POST" action="{% url 'school_admin_dashboard' %}" class="space-y-4 max-w-3xl">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="assign_class">
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Academic Session</label>
+          <select name="academic_year_id" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+            {% for ay in academic_years %}
+              <option value="{{ ay.id }}" {% if ay.is_current %}selected{% endif %}>{{ ay.name }} {% if ay.is_current %}(Current){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Select Classroom</label>
+          <select name="class_id" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+            {% for c in classrooms %}
+              <option value="{{ c.id }}">{{ c.grade_level.name }} {{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Select Subject</label>
+          <select name="subject_id" required class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+            {% for s in subjects %}
+              <option value="{{ s.id }}">{{ s.name }} ({{ s.code }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Select Teacher</label>
+          <select name="teacher_id" class="w-full rounded-lg border-slate-300 dark:border-slate-700 dark:bg-slate-800 p-2 text-sm">
+            <option value="">-- Leave Unassigned --</option>
+            {% for t in teachers %}
+              <option value="{{ t.id }}">{{ t.user.get_full_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <button type="submit" class="bg-brand text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-brand/90 transition-colors">
+          Save Assignment
+        </button>
+      </form>
+    </div>
+
+    <!-- Active Teaching Assignments -->
+    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+      <h3 class="text-md font-bold text-slate-900 dark:text-white mb-3">Active Teaching Assignments</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 dark:bg-slate-800 uppercase text-slate-500 dark:text-slate-400">
+            <tr>
+              <th class="p-3">Academic Session</th>
+              <th class="p-3">Classroom</th>
+              <th class="p-3">Subject</th>
+              <th class="p-3">Assigned Teacher</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+            {% for a in assignments %}
+              <tr>
+                <td class="p-3 font-semibold text-slate-900 dark:text-white">{{ a.academic_year.name }}</td>
+                <td class="p-3 text-slate-600 dark:text-slate-400">{{ a.classroom.grade_level.name }} {{ a.classroom.name }}</td>
+                <td class="p-3 font-medium">{{ a.subject.name }} ({{ a.subject.code }})</td>
+                <td class="p-3 text-slate-600 dark:text-slate-400">
+                  {% if a.teacher %}{{ a.teacher.user.get_full_name }}{% else %}<span class="italic text-slate-400">Unassigned</span>{% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="p-3 text-slate-500">No teaching assignments recorded yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}
