@@ -17,6 +17,7 @@
     editUserModal: false,
     editEnrollmentModal: false,
     editParentModal: false,
+    editExamModal: false,
 
     // Data Containers for Editing
     ayData: { id: '', name: '', start_date: '', end_date: '', is_current: false },
@@ -27,7 +28,8 @@
     assignmentData: { id: '', academic_year_id: '', class_id: '', subject_id: '', teacher_id: '' },
     userData: { id: '', first_name: '', last_name: '', email: '', role: '' },
     enrollmentData: { id: '', academic_year_id: '', student_id: '', class_id: '' },
-    parentData: { id: '', user_id: '', student_ids: [] }
+    parentData: { id: '', user_id: '', student_ids: [] },
+    examData: { id: '', academic_year_id: '', term_id: '', name: '', date: '', total_marks: 100 }
 }" class="min-h-screen bg-slate-50 dark:bg-slate-950 p-6">
 
     <!-- Header -->
@@ -57,6 +59,7 @@
         <button @click="activeTab = 'subjects'" :class="activeTab === 'subjects' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">Subjects</button>
         <button @click="activeTab = 'assignments'" :class="activeTab === 'assignments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">Teaching Assignments</button>
         <button @click="activeTab = 'enrollments'" :class="activeTab === 'enrollments' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">Student Enrollments</button>
+        <button @click="activeTab = 'exams'" :class="activeTab === 'exams' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">Examinations</button>
         <button @click="activeTab = 'parents'" :class="activeTab === 'parents' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">Parent-Student Links</button>
         <button @click="activeTab = 'users'" :class="activeTab === 'users' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">User Accounts</button>
     </div>
@@ -501,7 +504,100 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB 7: PARENT-STUDENT LINKS (NEW)          -->
+    <!-- TAB 7: EXAMINATIONS                        -->
+    <!-- ========================================== -->
+    <div x-show="activeTab === 'exams'" class="space-y-6">
+        <!-- Add Exam Form -->
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h3 class="text-lg font-bold mb-4 text-slate-900 dark:text-white">Create Examination</h3>
+            <form method="POST" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create_exam">
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Academic Year</label>
+                    <select name="academic_year_id" required class="w-full px-3 py-2 border rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700">
+                        <option value="">Select Academic Year</option>
+                        {% for year in academic_years %}
+                            <option value="{{ year.id }}">{{ year.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Term</label>
+                    <select name="term_id" required class="w-full px-3 py-2 border rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700">
+                        <option value="">Select Term</option>
+                        {% for term in terms %}
+                            <option value="{{ term.id }}">{{ term.academic_year.name }} - {{ term.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Exam Name</label>
+                    <input type="text" name="name" placeholder="e.g. Mid Term Examination" required class="w-full px-3 py-2 border rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Exam Date</label>
+                    <input type="date" name="date" required class="w-full px-3 py-2 border rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Total Marks</label>
+                    <input type="number" name="total_marks" min="1" step="0.01" value="100" required class="w-full px-3 py-2 border rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700">
+                </div>
+                <div class="md:col-span-2 lg:col-span-5 flex justify-end">
+                    <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition shadow-sm">
+                        Add Examination
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Existing Examinations Table -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <div class="p-6 border-b border-slate-200 dark:border-slate-800">
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white">Existing Examinations</h3>
+                <p class="text-xs text-slate-500 mt-0.5">Manage scheduled tests and exam criteria.</p>
+            </div>
+            <table class="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+                <thead class="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200">
+                    <tr>
+                        <th class="p-4">Exam Name</th>
+                        <th class="p-4">Academic Year</th>
+                        <th class="p-4">Term</th>
+                        <th class="p-4">Date</th>
+                        <th class="p-4">Total Marks</th>
+                        <th class="p-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                    {% for exam in exams %}
+                    <tr>
+                        <td class="p-4 font-semibold text-slate-900 dark:text-white">{{ exam.name }}</td>
+                        <td class="p-4">{{ exam.academic_year.name }}</td>
+                        <td class="p-4">{{ exam.term.name }}</td>
+                        <td class="p-4">{{ exam.date|date:"d M Y" }}</td>
+                        <td class="p-4">{{ exam.total_marks }}</td>
+                        <td class="p-4 text-right space-x-2">
+                            <button type="button" @click="editExamModal = true; examData = { id: '{{ exam.id }}', academic_year_id: '{{ exam.academic_year.id }}', term_id: '{{ exam.term.id }}', name: '{{ exam.name|escapejs }}', date: '{{ exam.date|date:'Y-m-d' }}', total_marks: '{{ exam.total_marks }}' }" class="text-xs text-blue-600 hover:underline">Edit</button>
+                            <form method="POST" class="inline" onsubmit="return confirm('Delete this examination?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_exam">
+                                <input type="hidden" name="exam_id" value="{{ exam.id }}">
+                                <button type="submit" class="text-xs text-red-600 hover:underline">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-xs text-slate-500 italic">No examinations have been created yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 8: PARENT-STUDENT LINKS                -->
     <!-- ========================================== -->
     <div x-show="activeTab === 'parents'" class="space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -592,7 +688,7 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- TAB 8: USERS MANAGEMENT                    -->
+    <!-- TAB 9: USERS MANAGEMENT                    -->
     <!-- ========================================== -->
     <div x-show="activeTab === 'users'" class="space-y-6">
         <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -949,6 +1045,50 @@
                 </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" @click="editEnrollmentModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Exam Modal -->
+    <div x-show="editExamModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" x-cloak>
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl max-w-md w-full shadow-xl">
+            <h3 class="text-lg font-bold mb-4 text-slate-900 dark:text-white">Edit Examination</h3>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="edit_exam">
+                <input type="hidden" name="exam_id" :value="examData.id">
+                <div class="mb-3">
+                    <label class="block text-xs font-medium mb-1">Academic Year</label>
+                    <select name="academic_year_id" x-model="examData.academic_year_id" required class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700">
+                        {% for ay in academic_years %}
+                        <option value="{{ ay.id }}">{{ ay.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-xs font-medium mb-1">Term</label>
+                    <select name="term_id" x-model="examData.term_id" required class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700">
+                        {% for term in terms %}
+                        <option value="{{ term.id }}">{{ term.academic_year.name }} - {{ term.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-xs font-medium mb-1">Exam Name</label>
+                    <input type="text" name="name" x-model="examData.name" required class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-xs font-medium mb-1">Exam Date</label>
+                    <input type="date" name="date" x-model="examData.date" required class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-xs font-medium mb-1">Total Marks</label>
+                    <input type="number" name="total_marks" x-model="examData.total_marks" min="1" step="0.01" required class="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" @click="editExamModal = false" class="px-4 py-2 border rounded-lg text-sm">Cancel</button>
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Save Changes</button>
                 </div>
             </form>

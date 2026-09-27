@@ -15,7 +15,19 @@ from rest_framework.response import Response
 
 from accounts.models import StudentProfile, CustomUser, TeacherProfile, ParentProfile, UserRole
 from students.models import Attendance, StudentMedicalRecord, ParentRelationship, StudentDocument, IncidentReport
-from academics.models import GradeLevel, Classroom, SubjectAssignment, Subject, AssessmentType, GradeRecord, StudentEnrollment, TimetableSlot, StudentSubjectEnrollment , ExamResult 
+from academics.models import (
+    GradeLevel,
+    Classroom,
+    SubjectAssignment,
+    Subject,
+    AssessmentType,
+    GradeRecord,
+    StudentEnrollment,
+    TimetableSlot,
+    StudentSubjectEnrollment,
+    ExamResult,
+    Exam,
+)
 from schools.models import School, Term, AcademicYear, SchoolSetting
 from .forms import (
     SchoolForm, UserManagementForm, SchoolProfileForm,
@@ -381,8 +393,136 @@ def school_admin_dashboard(request):
                 term.delete()
                 messages.success(request, f'Term "{term_name}" deleted.')
 
+                        # ---------------------------------------------------------
+            # 3. EXAM ACTIONS
             # ---------------------------------------------------------
-            # 3. GRADE LEVEL ACTIONS
+
+            elif action in ['create_exam', 'add_exam']:
+
+                academic_year_id = request.POST.get('academic_year_id')
+                term_id = request.POST.get('term_id')
+                name = request.POST.get('name', '').strip()
+                exam_date = request.POST.get('date')
+                total_marks = request.POST.get('total_marks')
+
+                academic_year = get_object_or_404(
+                    AcademicYear,
+                    id=academic_year_id,
+                    school=school
+                )
+
+                term = get_object_or_404(
+                    Term,
+                    id=term_id,
+                    school=school,
+                    academic_year=academic_year
+                )
+
+                if not name:
+                    messages.error(request, "Exam name is required.")
+
+                elif not exam_date:
+                    messages.error(request, "Exam date is required.")
+
+                elif not total_marks:
+                    messages.error(request, "Total marks are required.")
+
+                else:
+                    try:
+                        Exam.objects.create(
+                            school=school,
+                            academic_year=academic_year,
+                            term=term,
+                            name=name,
+                            date=exam_date,
+                            total_marks=total_marks
+                        )
+
+                        messages.success(
+                            request,
+                            f'Exam "{name}" created successfully.'
+                        )
+
+                    except Exception as e:
+                        logger.error(
+                            f"Error creating exam: {e}",
+                            exc_info=True
+                        )
+                        messages.error(
+                            request,
+                            "Failed to create exam."
+                        )
+
+
+            elif action in ['edit_exam', 'update_exam']:
+
+                exam_id = request.POST.get('exam_id') or request.POST.get('id')
+
+                exam = get_object_or_404(
+                    Exam,
+                    id=exam_id,
+                    school=school
+                )
+
+                academic_year_id = request.POST.get('academic_year_id')
+                term_id = request.POST.get('term_id')
+
+                if academic_year_id:
+                    exam.academic_year = get_object_or_404(
+                        AcademicYear,
+                        id=academic_year_id,
+                        school=school
+                    )
+
+                if term_id:
+                    exam.term = get_object_or_404(
+                        Term,
+                        id=term_id,
+                        school=school,
+                        academic_year=exam.academic_year
+                    )
+
+                exam.name = (
+                    request.POST.get('name', '').strip()
+                    or exam.name
+                )
+
+                exam_date = request.POST.get('date')
+                if exam_date:
+                    exam.date = exam_date
+
+                total_marks = request.POST.get('total_marks')
+                if total_marks:
+                    exam.total_marks = total_marks
+
+                exam.save()
+
+                messages.success(
+                    request,
+                    f'Exam "{exam.name}" updated successfully.'
+                )
+
+
+            elif action == 'delete_exam':
+
+                exam_id = request.POST.get('exam_id') or request.POST.get('id')
+
+                exam = get_object_or_404(
+                    Exam,
+                    id=exam_id,
+                    school=school
+                )
+
+                exam_name = exam.name
+
+                exam.delete()
+
+                messages.success(
+                    request,
+                    f'Exam "{exam_name}" deleted.'
+                )
+            # ---------------------------------------------------------
+            # 4. GRADE LEVEL ACTIONS
             # ---------------------------------------------------------
             elif action in ['create_grade_level', 'add_grade_level']:
                 name = request.POST.get('name', '').strip()
@@ -410,7 +550,7 @@ def school_admin_dashboard(request):
                 messages.success(request, f'Grade level "{grade_name}" deleted.')
 
             # ---------------------------------------------------------
-            # 4. CLASSROOM ACTIONS
+            # 5. CLASSROOM ACTIONS
             # ---------------------------------------------------------
             elif action in ['create_class', 'add_class']:
                 class_name = request.POST.get('name', '').strip() or request.POST.get('class_name', '').strip()
@@ -441,7 +581,7 @@ def school_admin_dashboard(request):
                 messages.success(request, f'Classroom "{c_name}" deleted.')
 
             # ---------------------------------------------------------
-            # 5. SUBJECT ACTIONS
+            # 6. SUBJECT ACTIONS
             # ---------------------------------------------------------
             elif action in ['create_subject', 'add_subject']:
                 name = request.POST.get('subject_name', '').strip() or request.POST.get('name', '').strip()
@@ -468,7 +608,7 @@ def school_admin_dashboard(request):
                 messages.success(request, f'Subject "{s_name}" deleted.')
 
             # ---------------------------------------------------------
-            # 6. TEACHING ASSIGNMENT ACTIONS
+            # 7. TEACHING ASSIGNMENT ACTIONS
             # ---------------------------------------------------------
             elif action in ['assign_class', 'add_assignment']:
                 ay_id = request.POST.get('academic_year_id')
@@ -516,7 +656,7 @@ def school_admin_dashboard(request):
                 messages.success(request, "Teaching assignment removed.")
 
             # ---------------------------------------------------------
-            # 7. STUDENT ENROLLMENT ACTIONS
+            # 8. STUDENT ENROLLMENT ACTIONS
             # ---------------------------------------------------------
             elif action in ['enroll_student', 'add_enrollment']:
                 student_id = request.POST.get('student_id')
@@ -565,7 +705,7 @@ def school_admin_dashboard(request):
                 messages.success(request, "Student enrollment removed.")
 
             # ---------------------------------------------------------
-            # 8. PARENT-STUDENT LINKING ACTIONS (NEW)
+            # 9. PARENT-STUDENT LINKING ACTIONS (NEW)
             # ---------------------------------------------------------
             elif action == 'assign_parent_students':
                 parent_profile_id = request.POST.get('parent_profile_id')
@@ -580,7 +720,7 @@ def school_admin_dashboard(request):
                 messages.success(request, f'Successfully updated linked children for parent "{parent_profile.user.get_full_name()}".')
 
             # ---------------------------------------------------------
-            # 9. USER MANAGEMENT ACTIONS (UPDATED FOR DYNAMIC PROFILES)
+            # 10. USER MANAGEMENT ACTIONS (UPDATED FOR DYNAMIC PROFILES)
             # ---------------------------------------------------------
             elif action in ['create_user', 'add_user']:
                 first_name = request.POST.get('first_name', '').strip()
@@ -690,6 +830,7 @@ def school_admin_dashboard(request):
         'q_student': q_student,
         'q_subject': q_subject,
         'q_class': q_class,
+        'exams': Exam.objects.filter( school=school).select_related('academic_year', 'term').order_by('-date','-academic_year__start_date'),
     }
     return render(request, 'dashboard/school_admin.html', context)
 # ==========================================
@@ -787,8 +928,45 @@ def teacher_dashboard(request):
         'total_classes_count': classrooms.count(),
         'total_students_count': my_students.count(),
         'total_subjects_count': teacher_assignments_qs.values('subject').distinct().count(),
+        'assessment_types': AssessmentType.objects.filter(school=school),
     }
     return render(request, 'dashboard/teacher.html', context)
+
+@login_required
+def teacher_add_exam_score(request):
+    if request.method == 'POST':
+        school = get_user_school(request)
+        assignment_id = request.POST.get('assignment_id')
+        student_id = request.POST.get('student_id')
+        assessment_type_id = request.POST.get('assessment_type_id')
+        score = request.POST.get('score')
+        max_score = request.POST.get('max_score', 100)
+        remarks = request.POST.get('remarks', '')
+
+        assignment = get_object_or_404(SubjectAssignment, id=assignment_id, school=school)
+        student = get_object_or_404(StudentProfile, id=student_id, school=school)
+        assessment_type = get_object_or_404(AssessmentType, id=assessment_type_id, school=school)
+        
+        teacher_profile = getattr(request.user, 'teacher_profile', None)
+
+        try:
+            GradeRecord.objects.update_or_create(
+                subject_assignment=assignment,
+                student=student,
+                assessment_type=assessment_type,
+                defaults={
+                    'school': school,
+                    'score': score,
+                    'max_score': max_score,
+                    'remarks': remarks,
+                    'recorded_by': teacher_profile
+                }
+            )
+            messages.success(request, f"Successfully recorded grade for {student.user.get_full_name() or student.user.username}.")
+        except Exception as e:
+            messages.error(request, f"Error saving score: {e}")
+
+    return redirect('teacher_dashboard')
 
 @login_required
 def student_dashboard(request):
@@ -912,7 +1090,6 @@ def teacher_gradebook_view(request, assignment_id):
 
     # 2. Conditional filter based on whether the subject is an elective
     if getattr(subject, 'is_elective', False):
-        # Restrict to students explicitly registered/enrolled for this specific elective subject
         enrolled_student_ids = StudentSubjectEnrollment.objects.filter(
             school=school,
             subject=subject,
@@ -922,7 +1099,6 @@ def teacher_gradebook_view(request, assignment_id):
         
         students = students_qs.filter(id__in=enrolled_student_ids).distinct()
     else:
-        # Non-elective (core) subject includes all students in the classroom
         students = students_qs.distinct()
 
     # Get or create assessment types with weights pulled from classroom/school settings
@@ -951,27 +1127,55 @@ def teacher_gradebook_view(request, assignment_id):
                     score_val = request.POST.get(f'score_{student.id}')
                     exam_val = request.POST.get(f'exam_{student.id}')
                     
+                    # --- Handle Coursework Score ---
                     if score_val is not None and score_val.strip() != '':
                         GradeRecord.objects.update_or_create(
                             school=school,
                             subject_assignment=assignment,
                             student=student,
                             assessment_type=coursework_type,
-                            defaults={'score': float(score_val), 'max_score': 40.00, 'recorded_by': teacher_profile}
+                            defaults={
+                                'score': float(score_val), 
+                                'max_score': 40.00, 
+                                'recorded_by': teacher_profile
+                            }
                         )
+                    else:
+                        # Clear record if input was emptied by user
+                        GradeRecord.objects.filter(
+                            school=school,
+                            subject_assignment=assignment,
+                            student=student,
+                            assessment_type=coursework_type
+                        ).delete()
                     
+                    # --- Handle Exam Score ---
                     if exam_val is not None and exam_val.strip() != '':
                         GradeRecord.objects.update_or_create(
                             school=school,
                             subject_assignment=assignment,
                             student=student,
                             assessment_type=exam_type,
-                            defaults={'score': float(exam_val), 'max_score': 60.00, 'recorded_by': teacher_profile}
+                            defaults={
+                                'score': float(exam_val), 
+                                'max_score': 60.00, 
+                                'recorded_by': teacher_profile
+                            }
                         )
+                    else:
+                        # Clear record if input was emptied by user
+                        GradeRecord.objects.filter(
+                            school=school,
+                            subject_assignment=assignment,
+                            student=student,
+                            assessment_type=exam_type
+                        ).delete()
+                        
                 messages.success(request, "Grade book updated successfully.")
             except Exception as e:
-                logger.error(f"Error saving grades: {e}")
-                messages.error(request, "Failed to update grades.")
+                logger.error(f"Error saving grades: {e}", exc_info=True)
+                messages.error(request, f"Failed to update grades: {e}")
+            
             return redirect('teacher_gradebook', assignment_id=assignment.id)
 
     existing_grades = GradeRecord.objects.filter(

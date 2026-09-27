@@ -1,7 +1,11 @@
 from django.contrib import admin
-from .models import GradeLevel, Classroom, Subject, SubjectAssignment, StudentEnrollment, TimetableSlot, Exam, ExamResult
+from .models import GradeLevel, Classroom, Subject, SubjectAssignment, StudentEnrollment, TimetableSlot, Exam, ExamResult, GradeRecord
 
-
+@admin.register(GradeRecord)
+class GradeRecordAdmin(admin.ModelAdmin):
+    list_display = ('id', 'school', 'subject_assignment', 'student', 'assessment_type', 'score', 'max_score', 'remarks')
+    list_filter = ('school', 'student', 'assessment_type')
+    search_fields = ('student',)
 
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
