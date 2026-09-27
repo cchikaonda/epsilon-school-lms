@@ -1,50 +1,141 @@
 {% extends "base.html" %}
 
-{% block title %}Parent Portal | Epsilon LMS{% endblock %}
+{% block title %}Parent Portal | {{ school.name|default:"Epsilon School" }}{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-8 max-w-7xl">
     <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900">Parent Dashboard</h1>
-        <p class="text-gray-600 mt-1">
-            Welcome back, <span class="font-semibold text-gray-900">{{ request.user.get_full_name|default:request.user.username }}</span>.
-            Monitoring performance for <span class="text-emerald-600 font-semibold">{{ school.name|default:"Epsilon School" }}</span>.
-        </p>
+    <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Parent Dashboard</h1>
+            <p class="text-gray-600 mt-1">
+                Welcome back, <span class="font-semibold text-gray-900">{{ request.user.get_full_name|default:request.user.username }}</span>.
+                Monitoring performance for <span class="text-emerald-600 font-semibold">{{ school.name|default:"Epsilon School" }}</span>.
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0 flex space-x-3">
+            <a href="{% url 'attendance_record' %}" class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition shadow-sm">
+                <i class="fas fa-calendar-check mr-2 text-emerald-600"></i> View All Attendance
+            </a>
+            <a href="{% url 'profile_edit' %}" class="inline-flex items-center px-4 py-2 bg-emerald-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-emerald-700 transition shadow-sm">
+                <i class="fas fa-user-cog mr-2"></i> Account Settings
+            </a>
+        </div>
     </div>
 
     <!-- Children Overview Section -->
     <div class="mb-8">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">Linked Students</h2>
+        <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-child text-emerald-600 mr-2"></i> Linked Students
+        </h2>
         
-        {% if children %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for child in children %}
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative overflow-hidden">
-                        <div class="flex items-center space-x-4 mb-4">
-                            <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-lg">
-                                {{ child.user.first_name|slice:":1" }}{{ child.user.last_name|slice:":1" }}
+        {% if linked_students %}
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {% for student in linked_students %}
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative overflow-hidden flex flex-col justify-between">
+                        <div>
+                            <!-- Student Avatar & Info -->
+                            <div class="flex items-center space-x-4 mb-4">
+                                <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-lg shadow-inner">
+                                    {{ student.user.first_name|slice:":1" }}{{ student.user.last_name|slice:":1" }}
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-gray-900 text-lg">{{ student.user.get_full_name }}</h3>
+                                    <p class="text-xs text-gray-500">ID: {{ student.admission_number|default:"N/A" }}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="font-bold text-gray-900 text-lg">{{ child.user.get_full_name }}</h3>
-                                <p class="text-xs text-gray-500">ID: {{ child.admission_number }} | Class: {{ child.classroom|default:"Form 1" }}</p>
+
+                            <!-- Current Academic Placement -->
+                            <div class="mb-4 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100/60">
+                                <span class="block text-xs font-semibold uppercase tracking-wider text-emerald-800 mb-1">Current Class</span>
+                                {% with enrollment=student.enrollments.first %}
+                                    {% if enrollment and enrollment.classroom %}
+                                        <p class="text-sm font-medium text-gray-900">
+                                            {{ enrollment.classroom.grade_level.name }} — {{ enrollment.classroom.name }}
+                                        </p>
+                                        <p class="text-xs text-gray-500 mt-0.5">Academic Year: {{ enrollment.academic_year.name }}</p>
+                                    {% else %}
+                                        <p class="text-sm text-gray-500 italic">No active class enrollment found.</p>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+
+                            <!-- Metrics Grid (Fixed related_names) -->
+                            <div class="grid grid-cols-2 gap-3 text-center mb-4">
+                                <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                    <span class="block text-xs text-gray-500">Attendance Log</span>
+                                    <span class="font-bold text-emerald-600 text-base">{{ student.attendance_records.count }} Records</span>
+                                </div>
+                                <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                    <span class="block text-xs text-gray-500">Incidents</span>
+                                    <span class="font-bold {% if student.incidents.all %}text-amber-600{% else %}text-gray-900{% endif %} text-base">
+                                        {{ student.incidents.count }} Flagged
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Recent Conduct Logs Preview -->
+                            {% if student.incidents.all %}
+                                <div class="mb-4">
+                                    <span class="block text-xs font-semibold text-gray-500 uppercase mb-2">Recent Conduct Logs</span>
+                                    <div class="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                                        {% for incident in student.incidents.all|slice:":2" %}
+                                            <div class="p-2 bg-amber-50/60 border border-amber-100 rounded text-xs">
+                                                <p class="font-semibold text-gray-800 truncate">{{ incident.title }}</p>
+                                                <p class="text-gray-500 text-[10px]">{{ incident.created_at|date:"M d, Y" }}</p>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <!-- Integrated Exam Results Section -->
+                            <div class="mb-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="block text-xs font-semibold text-gray-500 uppercase">Exam Results Breakdown</span>
+                                </div>
+                                <div class="overflow-x-auto border border-gray-100 rounded-lg">
+                                    <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                        <thead class="bg-gray-50 text-gray-500 font-semibold">
+                                            <tr>
+                                                <th class="px-3 py-2 text-left">Exam / Subject</th>
+                                                <th class="px-3 py-2 text-center">Score</th>
+                                                <th class="px-3 py-2 text-center">Grade</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-gray-100 bg-white">
+                                            {% for result in exam_results %}
+                                                {% if result.student == student %}
+                                                    <tr>
+                                                        <td class="px-3 py-2">
+                                                            <p class="font-medium text-gray-900">{{ result.subject.name }}</p>
+                                                            <p class="text-[10px] text-gray-500">{{ result.exam.name }}</p>
+                                                        </td>
+                                                        <td class="px-3 py-2 text-center text-gray-700">
+                                                            {{ result.marks_obtained }} / {{ result.exam.total_marks }}
+                                                        </td>
+                                                        <td class="px-3 py-2 text-center font-bold text-emerald-600">
+                                                            {{ result.grade|default:"-" }}
+                                                        </td>
+                                                    </tr>
+                                                {% endif %}
+                                            {% empty %}
+                                                <tr>
+                                                    <td colspan="3" class="px-3 py-3 text-center text-gray-400 italic">
+                                                        No exam results recorded yet.
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-center">
-                            <div class="bg-gray-50 p-3 rounded-lg">
-                                <span class="block text-xs text-gray-500">Attendance</span>
-                                <span class="font-bold text-emerald-600 text-base">96%</span>
-                            </div>
-                            <div class="bg-gray-50 p-3 rounded-lg">
-                                <span class="block text-xs text-gray-500">Fee Balance</span>
-                                <span class="font-bold text-gray-900 text-base">MWK 0</span>
-                            </div>
-                        </div>
-
-                        <div class="mt-4 pt-2">
-                            <a href="#" class="block text-center w-full py-2 bg-gray-900 hover:bg-black text-white text-sm font-medium rounded-lg transition">
-                                View Full Profile & Reports
+                        <!-- Card Footer Action -->
+                        <div class="pt-2">
+                            <a href="{% url 'exam_results' %}" class="block text-center w-full py-2 bg-gray-900 hover:bg-black text-white text-sm font-medium rounded-lg transition shadow-sm">
+                                View Full Academic Records
                             </a>
                         </div>
                     </div>
@@ -63,10 +154,10 @@
                     </div>
                 </div>
 
-                <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-center">
+                <div class="border-t border-gray-100 pt-4 grid grid-cols-2 gap-4 text-center mb-4">
                     <div class="bg-gray-50 p-3 rounded-lg">
-                        <span class="block text-xs text-gray-500">Attendance</span>
-                        <span class="font-bold text-emerald-600 text-base">94%</span>
+                        <span class="block text-xs text-gray-500">Attendance Status</span>
+                        <span class="font-bold text-emerald-600 text-base">94% Rate</span>
                     </div>
                     <div class="bg-gray-50 p-3 rounded-lg">
                         <span class="block text-xs text-gray-500">Fee Balance</span>
@@ -74,36 +165,59 @@
                     </div>
                 </div>
 
-                <div class="mt-4">
-                    <button class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition">
-                        Pay Fees Online
-                    </button>
+                <div class="p-3 bg-amber-50 text-amber-800 text-xs rounded-lg mb-4">
+                    <i class="fas fa-info-circle mr-1"></i> Your account is not yet linked to active students in the database. Contact school support if this is an error.
                 </div>
+
+                <button class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition shadow-sm">
+                    Pay Fees Online
+                </button>
             </div>
         {% endif %}
     </div>
 
     <!-- Academic Alerts & Notices -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Academic Results -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 class="text-lg font-bold text-gray-900 mb-4">Recent Academic Results</h2>
+            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <i class="fas fa-file-alt text-emerald-600 mr-2"></i> Recent Academic Results & Reports
+            </h2>
             <div class="space-y-3">
-                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100/50 transition">
                     <div>
-                        <p class="font-medium text-gray-900 text-sm">End of Term 1 Report Card</p>
-                        <p class="text-xs text-gray-500">Published on Aug 15, 2026</p>
+                        <p class="font-medium text-gray-900 text-sm">End of Term Report Card</p>
+                        <p class="text-xs text-gray-500">Accessible across registered students</p>
                     </div>
-                    <a href="{% url 'exam_results' %}" class="text-sm font-semibold text-emerald-600 hover:underline">Download PDF</a>
+                    <a href="{% url 'exam_results' %}" class="text-sm font-semibold text-emerald-600 hover:underline flex items-center">
+                        <i class="fas fa-download mr-1"></i> View Results
+                    </a>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100/50 transition">
+                    <div>
+                        <p class="font-medium text-gray-900 text-sm">Continuous Assessment Log</p>
+                        <p class="text-xs text-gray-500">Updated weekly by subject teachers</p>
+                    </div>
+                    <a href="{% url 'assignments_list' %}" class="text-sm font-semibold text-emerald-600 hover:underline flex items-center">
+                        <i class="fas fa-eye mr-1"></i> Check Assignments
+                    </a>
                 </div>
             </div>
         </div>
 
+        <!-- School Announcements -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 class="text-lg font-bold text-gray-900 mb-4">School Announcements</h2>
+            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                <i class="fas fa-bullhorn text-emerald-600 mr-2"></i> School Announcements
+            </h2>
             <div class="space-y-3">
-                <div class="p-3 border-l-4 border-emerald-500 bg-emerald-50/30 rounded-r-lg">
-                    <p class="font-semibold text-gray-900 text-sm">Parent-Teacher Conference</p>
-                    <p class="text-xs text-gray-600 mt-1">Scheduled for next Friday at 09:00 AM in the main hall.</p>
+                <div class="p-3 border-l-4 border-emerald-500 bg-emerald-50/30 rounded-r-lg border-y border-r border-gray-100">
+                    <p class="font-semibold text-gray-900 text-sm">Parent-Teacher Consultation Day</p>
+                    <p class="text-xs text-gray-600 mt-1">Scheduled for upcoming Friday at 09:00 AM in the main school hall. All parents are encouraged to attend.</p>
+                </div>
+                <div class="p-3 border-l-4 border-blue-500 bg-blue-50/30 rounded-r-lg border-y border-r border-gray-100">
+                    <p class="font-semibold text-gray-900 text-sm">Fee Payment Deadline Reminder</p>
+                    <p class="text-xs text-gray-600 mt-1">Please ensure all term balances are cleared prior to mid-term examinations.</p>
                 </div>
             </div>
         </div>

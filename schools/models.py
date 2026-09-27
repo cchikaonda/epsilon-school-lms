@@ -1,6 +1,8 @@
 import uuid
 from django.db import models
 from django.utils.text import slugify
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 
 
 class School(models.Model):
@@ -23,16 +25,23 @@ class School(models.Model):
     
     # School Metadata & Branding
     logo = models.ImageField(upload_to='school_logos/', null=True, blank=True)
+    motto = models.CharField(max_length=255, null=True, blank=True, help_text="School slogan or tagline")
     primary_color = models.CharField(max_length=7, default='#0f172a', help_text="Hex color code (e.g. #0f172a)")
     secondary_color = models.CharField(max_length=7, default='#047857', help_text="Hex color code (e.g. #047857)")
     
     # Contact & Address Details
     email = models.EmailField()
-    phone_number = models.CharField(max_length=20)
-    address = models.TextField()
-    city = models.CharField(max_length=100)
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
+    website = models.URLField(max_length=255, null=True, blank=True)
+    address = models.TextField(null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
     country = models.CharField(max_length=100, default='Malawi')
+    timezone = models.CharField(max_length=50, default='Africa/Blantyre')
     
+    # Active References
+    current_academic_year = models.ForeignKey('AcademicYear', on_delete=models.SET_NULL, null=True, blank=True, related_name='active_for_schools')
+    current_term = models.ForeignKey('Term', on_delete=models.SET_NULL, null=True, blank=True, related_name='active_for_schools')
+
     # Tenant Status & Billing
     subscription_status = models.CharField(
         max_length=20, 
@@ -48,11 +57,19 @@ class School(models.Model):
         verbose_name = "School"
         verbose_name_plural = "Schools"
 
+    def clean(self):
+        super().clean()
+        if self.custom_domain:
+            self.custom_domain = self.custom_domain.lower().strip()
+        if self.subdomain:
+            self.subdomain = self.subdomain.lower().strip()
+
     def save(self, *args, **kwargs):
         if not self.code:
             self.code = slugify(self.name)
         if not self.subdomain:
             self.subdomain = slugify(self.name)
+        self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -60,9 +77,6 @@ class School(models.Model):
 
 
 class AcademicYear(models.Model):
-    """
-    Defines the school year for each tenant (e.g., 2025/2026 Academic Year).
-    """
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='academic_years')
     name = models.CharField(max_length=100, help_text="e.g., 2025/2026")
     start_date = models.DateField()
@@ -74,9 +88,8 @@ class AcademicYear(models.Model):
         unique_together = ('school', 'name')
 
     def save(self, *args, **kwargs):
-        # Ensure only one academic year is active per school at a time
-        if self.is_current:
-            AcademicYear.objects.filter(school=self.school, is_current=True).exclude(pk=self.pk).update(is_current=False)
+        if self.is_current and getattr(self, 'school_id', None):
+            AcademicYear.objects.filter(school_id=self.school_id, is_current=True).exclude(pk=self.pk).update(is_current=False)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -84,9 +97,6 @@ class AcademicYear(models.Model):
 
 
 class Term(models.Model):
-    """
-    Defines terms or semesters within an Academic Year (e.g., Term 1, Term 2, Term 3).
-    """
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='terms')
     academic_year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='terms')
     name = models.CharField(max_length=50, help_text="e.g., Term 1")
@@ -99,9 +109,10 @@ class Term(models.Model):
         unique_together = ('academic_year', 'name')
 
     def save(self, *args, **kwargs):
-        # Ensure only one term is active per school at a time
-        if self.is_current:
-            Term.objects.filter(school=self.school, is_current=True).exclude(pk=self.pk).update(is_current=False)
+        if not getattr(self, 'school_id', None) and getattr(self, 'academic_year', None):
+            self.school = self.academic_year.school
+        if self.is_current and getattr(self, 'school_id', None):
+            Term.objects.filter(school_id=self.school_id, is_current=True).exclude(pk=self.pk).update(is_current=False)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -109,14 +120,31 @@ class Term(models.Model):
 
 
 class SchoolSetting(models.Model):
-    """
-    Stores tenant-specific configurations (grading schemes, currency, features enabled).
-    """
     school = models.OneToOneField(School, on_delete=models.CASCADE, related_name='settings')
     currency_code = models.CharField(max_length=10, default='MWK')
     currency_symbol = models.CharField(max_length=5, default='MK')
-    enable_sms_notifications = models.BooleanField(default=True)
+    pass_rate = models.PositiveIntegerField(
+        default=50, 
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    coursework_weight = models.PositiveIntegerField(default=40, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    exam_weight = models.PositiveIntegerField(default=60, validators=[MinValueValidator(0), MaxValueValidator(100)])
+
+    grading_scale = models.JSONField(default=list, blank=True)
+
+    enable_sms_notifications = models.BooleanField(default=False)
     enable_online_payments = models.BooleanField(default=False)
-    
+
+    def get_grading_scale(self):
+        """Returns stored grading scale or standard default scales if empty."""
+        if not self.grading_scale:
+            return [
+                {"min": 75, "max": 100, "grade": "A", "remark": "Distinction"},
+                {"min": 65, "max": 74, "grade": "B", "remark": "Credit"},
+                {"min": 50, "max": 64, "grade": "C", "remark": "Satisfactory"},
+                {"min": 0, "max": 49, "grade": "F", "remark": "Fail"},
+            ]
+        return self.grading_scale
+
     def __str__(self):
         return f"Settings for {self.school.name}"

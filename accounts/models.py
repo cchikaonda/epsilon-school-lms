@@ -119,19 +119,34 @@ class SchoolAdminProfile(models.Model):
 
 class TeacherProfile(models.Model):
     """
-    Profile extension for faculty/teachers.
+    Profile extension for faculty/teachers with auto-generated employment numbers.
     """
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='teacher_profile')
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='teacher_profiles')
-    employee_id = models.CharField(max_length=50)
+    employment_number = models.CharField(max_length=50, blank=True, null=True, help_text="Auto-generated using school code")
     qualification = models.CharField(max_length=255, blank=True, null=True)
+    department = models.CharField(max_length=100, blank=True, null=True)
     joining_date = models.DateField(null=True, blank=True)
 
     class Meta:
-        unique_together = ('school', 'employee_id')
+        unique_together = ('school', 'employment_number')
+
+    def save(self, *args, **kwargs):
+        if not self.employment_number and self.school:
+            school_prefix = (self.school.code or str(self.school.id)).upper().replace('-', '')
+            count = TeacherProfile.objects.filter(school=self.school).count() + 1
+            
+            while True:
+                candidate = f"{school_prefix}-EMP-{count:04d}"
+                if not TeacherProfile.objects.filter(school=self.school, employment_number=candidate).exists():
+                    self.employment_number = candidate
+                    break
+                count += 1
+                
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Teacher: {self.user.get_full_name()}"
+        return f"Teacher: {self.user.get_full_name()} ({self.employment_number})"
 
 
 class AccountantProfile(models.Model):
@@ -152,21 +167,38 @@ class AccountantProfile(models.Model):
 
 class StudentProfile(models.Model):
     """
-    Profile extension for enrolled students.
+    Profile extension for enrolled students with auto-generated admission numbers.
     """
     class Gender(models.TextChoices):
         MALE = 'M', 'Male'
         FEMALE = 'F', 'Female'
 
+    # Fixed typo here: on_date changed to on_delete
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='student_profile')
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name='student_profiles')
-    admission_number = models.CharField(max_length=50)
+    admission_number = models.CharField(max_length=50, blank=True, null=True, help_text="Auto-generated using school code")
     date_of_birth = models.DateField(null=True, blank=True)
-    gender = models.CharField(max_length=1, choices=Gender.choices)
+    gender = models.CharField(max_length=1, choices=Gender.choices, blank=True, null=True)
+    guardian_name = models.CharField(max_length=255, null=True, blank=True)
+    guardian_phone = models.CharField(max_length=20, null=True, blank=True)
     address = models.TextField(blank=True, null=True)
 
     class Meta:
         unique_together = ('school', 'admission_number')
+
+    def save(self, *args, **kwargs):
+        if not self.admission_number and self.school:
+            school_prefix = (self.school.code or str(self.school.id)).upper().replace('-', '')
+            count = StudentProfile.objects.filter(school=self.school).count() + 1
+            
+            while True:
+                candidate = f"{school_prefix}-ADM-{count:04d}"
+                if not StudentProfile.objects.filter(school=self.school, admission_number=candidate).exists():
+                    self.admission_number = candidate
+                    break
+                count += 1
+                
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Student: {self.user.get_full_name()} ({self.admission_number})"

@@ -1,6 +1,19 @@
 from django.contrib import admin
-from .models import GradeLevel, Classroom, Subject, SubjectAssignment, StudentEnrollment, TimetableSlot
+from .models import GradeLevel, Classroom, Subject, SubjectAssignment, StudentEnrollment, TimetableSlot, Exam, ExamResult
 
+
+
+@admin.register(Exam)
+class ExamAdmin(admin.ModelAdmin):
+    list_display = ('name', 'term', 'academic_year', 'date', 'total_marks', 'school')
+    list_filter = ('school', 'academic_year', 'term')
+    search_fields = ('name',)
+
+@admin.register(ExamResult)
+class ExamResultAdmin(admin.ModelAdmin):
+    list_display = ('student', 'exam', 'subject', 'marks_obtained', 'grade', 'school')
+    list_filter = ('school', 'exam', 'subject', 'grade')
+    search_fields = ('student__user__first_name', 'student__user__last_name', 'subject__name')
 
 @admin.register(GradeLevel)
 class GradeLevelAdmin(admin.ModelAdmin):

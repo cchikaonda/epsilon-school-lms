@@ -5,6 +5,7 @@ from .serializers import (
     GradeLevelSerializer, ClassroomSerializer, SubjectSerializer, 
     SubjectAssignmentSerializer, StudentEnrollmentSerializer, TimetableSlotSerializer
 )
+from schools.views import get_user_school, is_system_admin, IsSchoolAdminOrTeacher
 
 class GradeLevelViewSet(viewsets.ModelViewSet):
     serializer_class = GradeLevelSerializer
@@ -36,10 +37,19 @@ class SubjectAssignmentViewSet(viewsets.ModelViewSet):
 
 class StudentEnrollmentViewSet(viewsets.ModelViewSet):
     serializer_class = StudentEnrollmentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsSchoolAdminOrTeacher]
 
     def get_queryset(self):
-        return StudentEnrollment.objects.filter(school=self.request.user.school)
+        user = self.request.user
+        school = get_user_school(self.request)
+        
+        if is_system_admin(user):
+            return StudentEnrollment.objects.all()
+            
+        if school:
+            return StudentEnrollment.objects.filter(school=school)
+            
+        return StudentEnrollment.objects.none()
 
 class TimetableSlotViewSet(viewsets.ModelViewSet):
     serializer_class = TimetableSlotSerializer

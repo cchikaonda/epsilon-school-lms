@@ -23,11 +23,15 @@ urlpatterns = [
     
     # Specific Role Dashboards
     path('dashboard/admin/', views.school_admin_dashboard, name='school_admin_dashboard'),
+    path('dashboard/admin/settings/', views.school_settings_view, name='school_settings'),
     path('dashboard/teacher/', views.teacher_dashboard, name='teacher_dashboard'),
     path('dashboard/student/', views.student_dashboard, name='student_dashboard'),
     path('dashboard/parent/', views.parent_dashboard, name='parent_dashboard'),
     path('dashboard/accountant/', views.accountant_dashboard, name='accountant_dashboard'),
     path('dashboard/system-admin/', views.system_admin_dashboard, name='system_admin_dashboard'),
+
+    path('teacher/assignments/', views.assignments_list_view, name='teacher_subject_assignments'),
+    path('teacher/enroll-student/', views.teacher_enroll_student, name='teacher_enroll_student'),
     
     # System Admin - Schools CRUD
     path('dashboard/system-admin/schools/', views.school_list_create_view, name='school_manage'),

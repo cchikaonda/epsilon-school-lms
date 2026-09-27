@@ -3,23 +3,193 @@
 {% block title %}Teacher Portal | {{ school.name|default:"Epsilon LMS" }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-6 py-8">
-  <div class="mb-8 border-b border-slate-200 dark:border-slate-800 pb-4">
-    <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Teacher Workspace</h1>
-    <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Overview of your current courses and classes.</p>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="{ activeTab: 'classes' }">
+  
+  <!-- Header Section -->
+  <div class="mb-8 border-b border-slate-200 dark:border-slate-800 pb-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Teacher Workspace</h1>
+      <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Welcome back, <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>. Manage your classes, assessments, and records.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand/10 text-brand dark:bg-brand/20 dark:text-brand-300">
+        {{ school.name|default:"Active Tenant" }}
+      </span>
+    </div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
-      <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Mathematics - Form 4</h3>
-      <p class="text-slate-600 dark:text-slate-400 text-sm mb-4">Students: 32 | Next Period: 10:00 AM</p>
-      <a href="#" class="inline-block bg-brand hover:bg-brand-hover text-white text-xs font-semibold px-4 py-2 rounded-lg transition">Manage Class</a>
+  <!-- Quick Stats Overview -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Assigned Classes</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ total_classes_count|default:0 }}</h3>
+      </div>
+      <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center text-brand">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+      </div>
     </div>
-    <div class="bg-white dark:bg-darkblue-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm">
-      <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Physics - Form 3</h3>
-      <p class="text-slate-600 dark:text-slate-400 text-sm mb-4">Students: 28 | Next Period: 01:30 PM</p>
-      <a href="#" class="inline-block bg-brand hover:bg-brand-hover text-white text-xs font-semibold px-4 py-2 rounded-lg transition">Manage Class</a>
+    
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Students</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ total_students_count|default:0 }}</h3>
+      </div>
+      <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Subjects Taught</p>
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mt-1">{{ total_subjects_count|default:0 }}</h3>
+      </div>
+      <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+      </div>
     </div>
   </div>
+
+  <!-- Navigation Tabs -->
+  <div class="flex border-b border-slate-200 dark:border-slate-800 mb-6 overflow-x-auto">
+    <button @click="activeTab = 'classes'" :class="activeTab === 'classes' ? 'border-brand text-brand dark:text-brand-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'" class="py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap transition">My Classes & Subjects</button>
+    <button @click="activeTab = 'assignments'" :class="activeTab === 'assignments' ? 'border-brand text-brand dark:text-brand-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'" class="py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap transition">Assignments</button>
+    <button @click="activeTab = 'exams'" :class="activeTab === 'exams' ? 'border-brand text-brand dark:text-brand-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'" class="py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap transition">Quizzes & Exams</button>
+    <button @click="activeTab = 'attendance'" :class="activeTab === 'attendance' ? 'border-brand text-brand dark:text-brand-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'" class="py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap transition">Attendance</button>
+    <button @click="activeTab = 'resources'" :class="activeTab === 'resources' ? 'border-brand text-brand dark:text-brand-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'" class="py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap transition">Resources & Notes</button>
+  </div>
+
+  <!-- TAB 1: CLASSES & SUBJECTS -->
+  <!-- TAB 1: CLASSES & SUBJECTS -->
+  <div x-show="activeTab === 'classes'" class="space-y-6" x-data="{ openEnrollModal: false, selectedClassId: null, selectedClassName: '' }">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for sa in teaching_assignments %}
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">{{ sa.subject.code|default:"SUB" }}</span>
+            <span class="text-xs text-slate-500">{{ sa.academic_year.name }}</span>
+          </div>
+          <h3 class="text-xl font-bold text-slate-900 dark:text-white">{{ sa.subject.name }}</h3>
+          <p class="text-brand font-medium text-sm mt-1">{{ sa.classroom.grade_level.name }} - {{ sa.classroom.name }}</p>
+        </div>
+
+        <!-- Card Actions -->
+        <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+          <!-- Enroll Button triggers a modal or sets current class context -->
+          <button @click="openEnrollModal = true; selectedClassId = '{{ sa.id }}'; selectedClassName = '{{ sa.subject.name }} ({{ sa.classroom.name }})'" 
+                  class="inline-flex items-center text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg transition">
+            + Enroll Student
+          </button>
+          
+          <a href="{% url 'teacher_gradebook' sa.id %}" class="inline-flex items-center text-xs font-semibold bg-brand hover:bg-brand-hover text-white px-3 py-1.5 rounded-lg transition">
+            Manage Class
+          </a>
+        </div>
+      </div>
+      {% empty %}
+      <div class="col-span-full py-12 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+        <p class="text-slate-500 dark:text-slate-400">No teaching assignments found for the current academic year.</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Enrollment Modal Component -->
+    <div x-show="openEnrollModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div @click.outside="openEnrollModal = false" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-2xl p-6 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-slate-900 dark:text-white">Enroll Student to Class</h3>
+          <button @click="openEnrollModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        
+        <p class="text-sm text-slate-500 dark:text-slate-400">Target Class: <strong class="text-slate-800 dark:text-slate-200" x-text="selectedClassName"></strong></p>
+
+        <!-- Enrollment Form -->
+        <form method="POST" action="{% url 'teacher_enroll_student' %}" class="space-y-4">
+          {% csrf_token %}
+          <input type="hidden" name="assignment_id" :value="selectedClassId">
+          
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">Select Student</label>
+            <select name="student_id" required class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand">
+              <option value="">-- Choose a student --</option>
+              <!-- Populate this dynamically from your backend view context or via API -->
+              {% for student in available_students %}
+              <option value="{{ student.id }}">
+                {{ student.user.get_full_name|default:student.user.username }} 
+                {% if student.admission_number %}({{ student.admission_number }}){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="flex justify-end gap-3 pt-2">
+            <button type="button" @click="openEnrollModal = false" class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition">Cancel</button>
+            <button type="submit" class="px-4 py-2 text-sm font-semibold bg-brand hover:bg-brand-hover text-white rounded-xl transition">Confirm Enrollment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: ASSIGNMENTS -->
+  <div x-show="activeTab === 'assignments'" class="space-y-6" style="display: none;">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Manage Student Assignments</h3>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Create, publish, and grade assignments for your registered classes.</p>
+      </div>
+      <button class="bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 py-2 rounded-xl transition">Create Assignment</button>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
+      <p class="text-slate-500 dark:text-slate-400 text-sm">No active assignments created yet. Click above to post your first task.</p>
+    </div>
+  </div>
+
+  <!-- TAB 3: QUIZZES & EXAMS -->
+  <div x-show="activeTab === 'exams'" class="space-y-6" style="display: none;">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Assessments & Examination Scoring</h3>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Record marks, quizzes, and term assessments.</p>
+      </div>
+      <button class="bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 py-2 rounded-xl transition">Add Exam Score</button>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
+      <p class="text-slate-500 dark:text-slate-400 text-sm">Exam scoring sheets will appear here once configured.</p>
+    </div>
+  </div>
+
+  <!-- TAB 4: ATTENDANCE -->
+  <div x-show="activeTab === 'attendance'" class="space-y-6" style="display: none;">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Class Attendance Tracking</h3>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Mark daily attendance for students in your register.</p>
+      </div>
+      <button class="bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 py-2 rounded-xl transition">Take Attendance</button>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
+      <p class="text-slate-500 dark:text-slate-400 text-sm">No attendance registers logged for today.</p>
+    </div>
+  </div>
+
+  <!-- TAB 5: RESOURCES -->
+  <div x-show="activeTab === 'resources'" class="space-y-6" style="display: none;">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+      <div>
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Learning Materials & Notes</h3>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Upload revision resources, syllabi, and study notes for students.</p>
+      </div>
+      <button class="bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 py-2 rounded-xl transition">Upload Resource</button>
+    </div>
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center">
+      <p class="text-slate-500 dark:text-slate-400 text-sm">No digital resources uploaded yet.</p>
+    </div>
+  </div>
+
 </div>
 {% endblock %}

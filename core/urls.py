@@ -17,6 +17,7 @@ from schools.views import (
     exam_results_view,
     assignments_list_view,
     attendance_record_view,
+    teacher_gradebook_view,
 )
 
 urlpatterns = [
@@ -35,6 +36,7 @@ urlpatterns = [
     path('dashboard/parent/', parent_dashboard, name='parent_dashboard'),
     path('dashboard/teacher/', teacher_dashboard, name='teacher_dashboard'),
     path('dashboard/student/', student_dashboard, name='student_dashboard'),
+    path('teacher/gradebook/<uuid:assignment_id>/',  teacher_gradebook_view, name='teacher_gradebook'),
 
     # REST API Routes
     path('api-auth/', include('rest_framework.urls')),

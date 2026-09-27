@@ -43,9 +43,9 @@ class SchoolAdminProfileAdmin(admin.ModelAdmin):
 
 @admin.register(TeacherProfile)
 class TeacherProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'school', 'employee_id', 'joining_date')
-    list_filter = ('school',)
-    search_fields = ('user__first_name', 'user__last_name', 'user__email', 'employee_id')
+    list_display = ('user', 'school', 'employment_number', 'qualification', 'joining_date')  # Updated from employee_id
+    search_fields = ('user__email', 'user__first_name', 'user__last_name', 'employment_number')
+    list_filter = ('school', 'department')
 
 
 @admin.register(AccountantProfile)
