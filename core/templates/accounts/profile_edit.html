@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4" id="edit-profile-section">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-primary text-white py-3">
+                    <h4 class="mb-0">Edit Profile & Account Settings</h4>
+                </div>
+                <div class="card-body p-4">
+
+                    <!-- Django Messages -->
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %>
+
+                        <!-- Core User Account Section -->
+                        <h5 class="text-secondary border-bottom pb-2 mb-3">Personal Information</h5>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">First Name</label>
+                                {{ user_form.first_name }}
+                                {{ user_form.first_name.errors }}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Last Name</label>
+                                {{ user_form.last_name }}
+                                {{ user_form.last_name.errors }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Phone Number</label>
+                            {{ user_form.phone_number }}
+                            {{ user_form.phone_number.errors }}
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Profile Picture</label>
+                            {{ user_form.profile_picture }}
+                            {{ user_form.profile_picture.errors }}
+                        </div>
+
+                        <!-- Student Extended Profile Section (If applicable) -->
+                        {% if student_form %}
+                            <h5 class="text-secondary border-bottom pb-2 mb-3 mt-4">Student Details</h5>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Date of Birth</label>
+                                    {{ student_form.date_of_birth }}
+                                    {{ student_form.date_of_birth.errors }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Gender</label>
+                                    {{ student_form.gender }}
+                                    {{ student_form.gender.errors }}
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Guardian Name</label>
+                                    {{ student_form.guardian_name }}
+                                    {{ student_form.guardian_name.errors }}
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Guardian Phone</label>
+                                    {{ student_form.guardian_phone }}
+                                    {{ student_form.guardian_phone.errors }}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Physical Address</label>
+                                {{ student_form.address }}
+                                {{ student_form.address.errors }}
+                            </div>
+                        {% endif %}
+
+                        <!-- Submit Actions -->
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <a href="{% url 'student_dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4">Save Changes</button>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

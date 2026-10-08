@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Assessments | {{ school.name|default:"Epsilon LMS" }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" x-data="{ openCreateModal: false }">
+  
+  <!-- Header Section -->
+  <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+        Assessments & Homework 📚
+      </h1>
+      <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">
+        Create, publish, and track student assignment submissions and evaluations.
+      </p>
+    </div>
+    
+    <div class="flex items-center gap-3">
+      <a href="{% url 'teacher_dashboard' %}" class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+        <span>&larr;</span>
+        <span>Back to Workspace</span>
+      </a>
+      
+      <button @click="openCreateModal = true" class="px-5 py-2.5 bg-brand hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm transition flex items-center space-x-2">
+        <span>+ New Assessment</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Assessments Listing Grid/Table Container -->
+  <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-lg font-extrabold text-slate-900 dark:text-white">Active Class Assessments</h2>
+      <span class="text-xs font-semibold text-slate-400">{{ assessments|length|default:"0" }} Total</span>
+    </div>
+
+    <div class="space-y-4">
+      {% if assessments %}
+        {% for assessment in assessments %}
+          <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            <!-- Assessment Info -->
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/80 dark:text-indigo-400 px-2.5 py-0.5 rounded-md border border-indigo-200/50 dark:border-indigo-900/50">
+                  {{ assessment.subject_assignment.subject.name|default:"Subject" }}
+                </span>
+                
+                <span class="text-xs font-semibold text-slate-600 bg-slate-200 dark:bg-slate-700 dark:text-slate-300 px-2.5 py-0.5 rounded-md">
+                  {{ assessment.subject_assignment.classroom.grade_level.name }} {{ assessment.subject_assignment.classroom.name }}
+                </span>
+
+                <span class="text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded">
+                  {{ assessment.get_kind_display|default:"Assignment" }}
+                </span>
+              </div>
+
+              <h3 class="font-extrabold text-slate-900 dark:text-white text-base mt-1">{{ assessment.title }}</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                {{ assessment.description|default:"No instructions provided." }}
+              </p>
+            </div>
+
+            <!-- Due Date & Actions -->
+            <div class="flex items-center space-x-4 shrink-0">
+              <div class="text-right">
+                <p class="text-[11px] uppercase tracking-wider text-slate-400 font-bold">Due Date</p>
+                <p class="text-xs font-bold text-slate-800 dark:text-slate-200">{{ assessment.due_date|date:"M d, Y - H:i" }}</p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                {% if assessment.get_absolute_url %}
+                  <a href="{{ assessment.get_absolute_url }}" class="px-4 py-2 bg-brand hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-sm transition">
+                    View Submissions
+                  </a>
+                {% else %}
+                  <span class="text-xs text-slate-400 italic">No submissions link</span>
+                {% endif %}
+              </div>
+            </div>
+
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="py-16 text-center bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
+          <svg class="w-12 h-12 mx-auto text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+          </svg>
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">No Assessments Created</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Click "+ New Assessment" above to create homework or tests for your students.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Create Assessment Modal -->
+  <div x-show="openCreateModal" style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+    <div @click.outside="openCreateModal = false" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+        <h3 class="text-lg font-extrabold text-slate-900 dark:text-white">Create New Assessment</h3>
+        <button @click="openCreateModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Assessment Creation Form -->
+      <form method="POST" class="space-y-4">
+        {% csrf_token %}
+        
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Teaching Assignment / Class</label>
+          <select name="subject_assignment" required class="w-full text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand">
+            <option value="">-- Choose class & subject --</option>
+            {% for sa in teaching_assignments %}
+              <option value="{{ sa.id }}">{{ sa.subject.name }} — {{ sa.classroom.grade_level.name }} {{ sa.classroom.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Assessment Title</label>
+          <input type="text" name="title" placeholder="e.g. Chapter 4 Problem Set" required class="w-full text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Type / Kind</label>
+            <select name="kind" class="w-full text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand">
+              <option value="HOMEWORK">Homework</option>
+              <option value="QUIZ">Quiz</option>
+              <option value="PROJECT">Project</option>
+              <option value="EXAM">Exam</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Due Date & Time</label>
+            <input type="datetime-local" name="due_date" required class="w-full text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Instructions / Description</label>
+          <textarea name="description" rows="3" placeholder="Provide clear directions for the students..." class="w-full text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <button type="button" @click="openCreateModal = false" class="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition">Cancel</button>
+          <button type="submit" name="action" value="create_assessment" class="px-6 py-2.5 text-sm font-semibold bg-brand hover:bg-blue-700 text-white rounded-xl shadow-md transition">Publish Assessment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

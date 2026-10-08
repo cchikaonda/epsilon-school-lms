@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
@@ -14,22 +15,12 @@
     }
   </script>
   
-  <!-- Tailwind CSS & Alpine.js -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Online Tailwind CSS -->
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+<!-- Alpine.js -->
+<script defer src="https://cdn.jsdelivr.net/npm/[email protected]/dist/cdn.min.js"></script>
   
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: '#2563eb',
-          }
-        }
-      }
-    }
-  </script>
   <style>
     [x-cloak] { display: none !important; }
   </style>
@@ -55,19 +46,19 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         
-          <!-- Brand / Logo -->
-<div class="flex items-center gap-3">
-  <a href="{% url 'home'|default:'#' %}" class="flex items-center gap-2 font-extrabold text-lg text-slate-900 dark:text-white tracking-tight">
-    {% if school and school.logo %}
-      <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="w-9 h-9 rounded-xl object-cover shadow-sm border border-slate-200 dark:border-slate-700">
-    {% else %}
-      <div class="w-8 h-8 rounded-xl bg-brand flex items-center justify-center text-white font-black text-xl shadow-sm">
-        {{ school.name|slice:":1"|default:"E" }}
-      </div>
-    {% endif %}
-    <span>{{ school.name|default:"COGNISPHERE ACADEMY" }}</span>
-  </a>
-</div>
+        <!-- Brand / Logo -->
+        <div class="flex items-center gap-3">
+          <a href="{% url 'home' %}" class="flex items-center gap-2 font-extrabold text-lg text-slate-900 dark:text-white tracking-tight">
+            {% if school and school.logo %}
+              <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="w-9 h-9 rounded-xl object-cover shadow-sm border border-slate-200 dark:border-slate-700">
+            {% else %}
+              <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-sm">
+                {{ school.name|slice:":1"|default:"E" }}
+              </div>
+            {% endif %}
+            <span>{{ school.name|default:"COGNISPHERE ACADEMY" }}</span>
+          </a>
+        </div>
 
         <!-- Desktop Navigation Links (Role-Based) -->
         <div class="hidden md:flex items-center space-x-1">
@@ -80,25 +71,20 @@
             
             <!-- Teacher Links -->
             {% elif user.role == 'TEACHER' %}
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">My Classes</a>
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Gradebook</a>
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Attendance</a>
+              <a href="{% url 'teacher_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Teacher Workspace</a>
 
             <!-- Student Links -->
             {% elif user.role == 'STUDENT' %}
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">My Subjects</a>
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Assignments</a>
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Report Card</a>
+              <a href="{% url 'student_subjects' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">My Subjects</a>
+              <a href="{% url 'student_assignments' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Assignments</a>
 
             <!-- Parent Links -->
             {% elif user.role == 'PARENT' %}
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Children Overview</a>
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Fee Statements</a>
+              <a href="{% url 'parent_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Parent Dashboard</a>
 
             <!-- Accountant Links -->
             {% elif user.role == 'ACCOUNTANT' %}
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Fee Management</a>
-              <a href="#" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Financial Reports</a>
+              <a href="{% url 'accountant_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Accountant Dashboard</a>
             {% endif %}
 
           {% endif %}
@@ -126,10 +112,10 @@
               <span class="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full uppercase font-bold border border-slate-200 dark:border-slate-700">
                 {{ user.role|default:"User" }}
               </span>
-              <a href="{% url 'logout'|default:'#' %}" class="ml-2 text-xs text-red-600 dark:text-red-400 hover:underline font-medium">Logout</a>
+              <a href="{% url 'logout' %}" class="ml-2 text-xs text-red-600 dark:text-red-400 hover:underline font-medium">Logout</a>
             </div>
           {% else %}
-            <a href="{% url 'login'|default:'#' %}" class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand">Log In</a>
+            <a href="{% url 'login' %}" class="text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-blue-600">Log In</a>
           {% endif %}
         </div>
 
@@ -180,7 +166,7 @@
             <p class="font-bold text-sm text-slate-900 dark:text-white">{{ user.get_full_name|default:user.username }}</p>
             <p class="text-xs text-slate-500 dark:text-slate-400">{{ user.email }}</p>
           </div>
-          <span class="text-[10px] bg-brand/10 text-brand px-2.5 py-1 rounded-full font-bold border border-brand/20 uppercase">
+          <span class="text-[10px] bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2.5 py-1 rounded-full font-bold border border-blue-200 dark:border-blue-900 uppercase">
             {{ user.role|default:"User" }}
           </span>
         </div>
@@ -196,54 +182,39 @@
             </a>
 
           {% elif user.role == 'TEACHER' %}
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              📚 My Assigned Classes
-            </a>
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              📝 Gradebook & Marks
-            </a>
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              📋 Student Attendance
+            <a href="{% url 'teacher_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              📚 Teacher Workspace
             </a>
 
           {% elif user.role == 'STUDENT' %}
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <a href="{% url 'student_subjects' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
               📖 My Enrolled Subjects
             </a>
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+            <a href="{% url 'student_assignments' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
               ✍️ Homework & Assignments
-            </a>
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              📄 Academic Report Cards
             </a>
 
           {% elif user.role == 'PARENT' %}
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              👨‍👩‍👧 Children Overview
-            </a>
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              💳 Fee Balance & Payments
+            <a href="{% url 'parent_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              👨‍👩‍👧 Parent Dashboard
             </a>
 
           {% elif user.role == 'ACCOUNTANT' %}
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              💰 Fee Management
-            </a>
-            <a href="#" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              📈 Financial Reports
+            <a href="{% url 'accountant_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+              💰 Accountant Dashboard
             </a>
           {% endif %}
         </div>
 
         <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
-          <a href="{% url 'logout'|default:'#' %}" class="block w-full text-center p-3 rounded-xl text-sm font-semibold text-red-600 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50">
+          <a href="{% url 'logout' %}" class="block w-full text-center p-3 rounded-xl text-sm font-semibold text-red-600 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50">
             Log Out Account
           </a>
         </div>
 
       {% else %}
         <div class="p-2">
-          <a href="{% url 'login'|default:'#' %}" class="block w-full text-center p-3 rounded-xl text-sm font-semibold text-white bg-brand shadow-sm">
+          <a href="{% url 'login' %}" class="block w-full text-center p-3 rounded-xl text-sm font-semibold text-white bg-blue-600 shadow-sm">
             Log In
           </a>
         </div>

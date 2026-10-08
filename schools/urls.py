@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .views import home, dashboard_redirect, system_admin_dashboard, school_admin_dashboard, accountant_dashboard, parent_dashboard, teacher_dashboard, student_dashboard, profile_edit_view, exam_results_view, assignments_list_view, attendance_record_view, teacher_gradebook_view, teacher_add_exam_score
 
 # Register DRF ViewSets
 router = DefaultRouter()
@@ -49,6 +50,10 @@ urlpatterns = [
     path('academics/assignments/', views.assignments_list_view, name='assignments_list'),
     path('academics/attendance/', views.attendance_record_view, name='attendance_record'),
 
+
+    path('dashboard/subjects/', views.student_subjects_view, name='student_subjects'),
+    path('dashboard/assignments/', views.student_assignments_view, name='student_assignments'),
+    path('dashboard/report-card/', views.student_report_card_view, name='student_report_card'),
     # Public Tenant Info Endpoint
     path('api/domain-info/', views.SchoolDomainInfoView.as_view(), name='school_domain_info'),
 

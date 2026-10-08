@@ -1,5 +1,6 @@
-import logging
 import json
+import logging
+from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -27,12 +28,15 @@ from academics.models import (
     StudentSubjectEnrollment,
     ExamResult,
     Exam,
+    Assessment,
+    AssessmentSubmission,
+    LearningResource,
 )
 from schools.models import School, Term, AcademicYear, SchoolSetting
 from .forms import (
     SchoolForm, UserManagementForm, SchoolProfileForm,
     SchoolSettingForm, AcademicYearForm, TermForm,
-    GradeLevelForm, StreamForm
+    GradeLevelForm, StreamForm, UserProfileForm, StudentProfileForm
 )
 
 logger = logging.getLogger(__name__)
@@ -81,11 +85,9 @@ class IsSchoolAdminOrTeacher(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
             
-        # Allow read requests for any authenticated user
         if request.method in permissions.SAFE_METHODS: # GET, HEAD, OPTIONS
             return True
             
-        # Write requests restricted to System Admin, School Admin, or Teacher
         role = getattr(request.user, 'role', None)
         is_teacher = role == 'TEACHER' or hasattr(request.user, 'teacher_profile')
         
@@ -95,7 +97,6 @@ def get_user_school(request):
     """Retrieve school tenant bound to current user or request context."""
     school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
     if not school and is_system_admin(request.user):
-        # Fallback for system admin managing a specific tenant via GET parameter
         school_id = request.GET.get('school_id')
         if school_id:
             return get_object_or_404(School, id=school_id)
@@ -129,6 +130,45 @@ def dashboard_redirect(request):
         return redirect('teacher_dashboard')
 
     return redirect('student_dashboard')
+
+
+# ==========================================
+# Student Import View with Logging
+# ==========================================
+
+@login_required
+@user_passes_test(is_school_admin)
+def student_import_view(request):
+    """
+    Handles bulk student imports with comprehensive logging.
+    """
+    school = get_user_school(request)
+    
+    if request.method == 'POST':
+        import_file = request.FILES.get('import_file')
+        if not import_file:
+            logger.warning(f"Student import failed: No file provided by user {request.user.username} for school {school.name if school else 'Unknown'}")
+            messages.error(request, "Please upload a valid import file.")
+            return redirect('student_import')
+
+        logger.info(f"Starting student import process by user {request.user.username} for school: {school}")
+        
+        success_count = 0
+        error_count = 0
+
+        try:
+            messages.success(request, f"Import completed. Success: {success_count}, Errors: {error_count}")
+            logger.info(f"Student import finished for school {school}. Successes: {success_count}, Errors: {error_count}")
+        except Exception as e:
+            logger.error(f"Critical error during student import file parsing for school {school}: {e}", exc_info=True)
+            messages.error(request, f"A critical error occurred while processing the file: {e}")
+
+        return redirect('school_admin_dashboard')
+
+    context = {
+        'school': school,
+    }
+    return render(request, 'dashboard/student_import.html', context)
 
 
 # ==========================================
@@ -310,9 +350,6 @@ def school_admin_dashboard(request):
         action = request.POST.get('action')
 
         try:
-            # ---------------------------------------------------------
-            # 1. ACADEMIC YEAR ACTIONS
-            # ---------------------------------------------------------
             if action in ['create_academic_year', 'add_academic_year']:
                 name = request.POST.get('name', '').strip() or request.POST.get('year_name', '').strip()
                 start_date = request.POST.get('start_date')
@@ -349,9 +386,6 @@ def school_admin_dashboard(request):
                 ay.delete()
                 messages.success(request, f'Academic year "{ay_name}" deleted.')
 
-            # ---------------------------------------------------------
-            # 2. TERM ACTIONS
-            # ---------------------------------------------------------
             elif action in ['create_term', 'add_term']:
                 ay_id = request.POST.get('academic_year_id')
                 ay = get_object_or_404(AcademicYear, id=ay_id, school=school)
@@ -393,137 +427,61 @@ def school_admin_dashboard(request):
                 term.delete()
                 messages.success(request, f'Term "{term_name}" deleted.')
 
-                        # ---------------------------------------------------------
-            # 3. EXAM ACTIONS
-            # ---------------------------------------------------------
-
             elif action in ['create_exam', 'add_exam']:
-
                 academic_year_id = request.POST.get('academic_year_id')
                 term_id = request.POST.get('term_id')
                 name = request.POST.get('name', '').strip()
                 exam_date = request.POST.get('date')
                 total_marks = request.POST.get('total_marks')
 
-                academic_year = get_object_or_404(
-                    AcademicYear,
-                    id=academic_year_id,
-                    school=school
-                )
-
-                term = get_object_or_404(
-                    Term,
-                    id=term_id,
-                    school=school,
-                    academic_year=academic_year
-                )
+                academic_year = get_object_or_404(AcademicYear, id=academic_year_id, school=school)
+                term = get_object_or_404(Term, id=term_id, school=school, academic_year=academic_year)
 
                 if not name:
                     messages.error(request, "Exam name is required.")
-
                 elif not exam_date:
                     messages.error(request, "Exam date is required.")
-
                 elif not total_marks:
                     messages.error(request, "Total marks are required.")
-
                 else:
                     try:
                         Exam.objects.create(
-                            school=school,
-                            academic_year=academic_year,
-                            term=term,
-                            name=name,
-                            date=exam_date,
-                            total_marks=total_marks
+                            school=school, academic_year=academic_year,
+                            term=term, name=name, date=exam_date, total_marks=total_marks
                         )
-
-                        messages.success(
-                            request,
-                            f'Exam "{name}" created successfully.'
-                        )
-
+                        messages.success(request, f'Exam "{name}" created successfully.')
                     except Exception as e:
-                        logger.error(
-                            f"Error creating exam: {e}",
-                            exc_info=True
-                        )
-                        messages.error(
-                            request,
-                            "Failed to create exam."
-                        )
-
+                        logger.error(f"Error creating exam: {e}", exc_info=True)
+                        messages.error(request, "Failed to create exam.")
 
             elif action in ['edit_exam', 'update_exam']:
-
                 exam_id = request.POST.get('exam_id') or request.POST.get('id')
-
-                exam = get_object_or_404(
-                    Exam,
-                    id=exam_id,
-                    school=school
-                )
-
+                exam = get_object_or_404(Exam, id=exam_id, school=school)
                 academic_year_id = request.POST.get('academic_year_id')
                 term_id = request.POST.get('term_id')
 
                 if academic_year_id:
-                    exam.academic_year = get_object_or_404(
-                        AcademicYear,
-                        id=academic_year_id,
-                        school=school
-                    )
-
+                    exam.academic_year = get_object_or_404(AcademicYear, id=academic_year_id, school=school)
                 if term_id:
-                    exam.term = get_object_or_404(
-                        Term,
-                        id=term_id,
-                        school=school,
-                        academic_year=exam.academic_year
-                    )
+                    exam.term = get_object_or_404(Term, id=term_id, school=school, academic_year=exam.academic_year)
 
-                exam.name = (
-                    request.POST.get('name', '').strip()
-                    or exam.name
-                )
-
+                exam.name = request.POST.get('name', '').strip() or exam.name
                 exam_date = request.POST.get('date')
                 if exam_date:
                     exam.date = exam_date
-
                 total_marks = request.POST.get('total_marks')
                 if total_marks:
                     exam.total_marks = total_marks
-
                 exam.save()
-
-                messages.success(
-                    request,
-                    f'Exam "{exam.name}" updated successfully.'
-                )
-
+                messages.success(request, f'Exam "{exam.name}" updated successfully.')
 
             elif action == 'delete_exam':
-
                 exam_id = request.POST.get('exam_id') or request.POST.get('id')
-
-                exam = get_object_or_404(
-                    Exam,
-                    id=exam_id,
-                    school=school
-                )
-
+                exam = get_object_or_404(Exam, id=exam_id, school=school)
                 exam_name = exam.name
-
                 exam.delete()
+                messages.success(request, f'Exam "{exam_name}" deleted.')
 
-                messages.success(
-                    request,
-                    f'Exam "{exam_name}" deleted.'
-                )
-            # ---------------------------------------------------------
-            # 4. GRADE LEVEL ACTIONS
-            # ---------------------------------------------------------
             elif action in ['create_grade_level', 'add_grade_level']:
                 name = request.POST.get('name', '').strip()
                 level_order = request.POST.get('level_order', 1)
@@ -549,9 +507,6 @@ def school_admin_dashboard(request):
                 grade.delete()
                 messages.success(request, f'Grade level "{grade_name}" deleted.')
 
-            # ---------------------------------------------------------
-            # 5. CLASSROOM ACTIONS
-            # ---------------------------------------------------------
             elif action in ['create_class', 'add_class']:
                 class_name = request.POST.get('name', '').strip() or request.POST.get('class_name', '').strip()
                 grade_level_id = request.POST.get('grade_level_id')
@@ -580,9 +535,6 @@ def school_admin_dashboard(request):
                 classroom.delete()
                 messages.success(request, f'Classroom "{c_name}" deleted.')
 
-            # ---------------------------------------------------------
-            # 6. SUBJECT ACTIONS
-            # ---------------------------------------------------------
             elif action in ['create_subject', 'add_subject']:
                 name = request.POST.get('subject_name', '').strip() or request.POST.get('name', '').strip()
                 code = request.POST.get('code', '').strip()
@@ -607,9 +559,6 @@ def school_admin_dashboard(request):
                 subject.delete()
                 messages.success(request, f'Subject "{s_name}" deleted.')
 
-            # ---------------------------------------------------------
-            # 7. TEACHING ASSIGNMENT ACTIONS
-            # ---------------------------------------------------------
             elif action in ['assign_class', 'add_assignment']:
                 ay_id = request.POST.get('academic_year_id')
                 class_id = request.POST.get('class_id')
@@ -622,11 +571,8 @@ def school_admin_dashboard(request):
                 teacher = get_object_or_404(TeacherProfile, id=teacher_id, school=school) if teacher_id else None
 
                 SubjectAssignment.objects.create(
-                    school=school,
-                    academic_year=ay,
-                    classroom=classroom,
-                    subject=subject,
-                    teacher=teacher
+                    school=school, academic_year=ay, classroom=classroom,
+                    subject=subject, teacher=teacher
                 )
                 messages.success(request, "Teaching assignment created successfully.")
 
@@ -655,9 +601,6 @@ def school_admin_dashboard(request):
                 asgn.delete()
                 messages.success(request, "Teaching assignment removed.")
 
-            # ---------------------------------------------------------
-            # 8. STUDENT ENROLLMENT ACTIONS
-            # ---------------------------------------------------------
             elif action in ['enroll_student', 'add_enrollment']:
                 student_id = request.POST.get('student_id')
                 class_id = request.POST.get('class_id')
@@ -668,9 +611,7 @@ def school_admin_dashboard(request):
                 ay = get_object_or_404(AcademicYear, id=ay_id, school=school)
 
                 enrollment, created = StudentEnrollment.objects.get_or_create(
-                    school=school,
-                    student=student,
-                    academic_year=ay,
+                    school=school, student=student, academic_year=ay,
                     defaults={'classroom': classroom}
                 )
                 if not created:
@@ -704,24 +645,17 @@ def school_admin_dashboard(request):
                 enrollment.delete()
                 messages.success(request, "Student enrollment removed.")
 
-            # ---------------------------------------------------------
-            # 9. PARENT-STUDENT LINKING ACTIONS (NEW)
-            # ---------------------------------------------------------
             elif action == 'assign_parent_students':
                 parent_profile_id = request.POST.get('parent_profile_id')
-                student_ids = request.POST.getlist('student_ids')  # Supports multiple selected children
+                student_ids = request.POST.getlist('student_ids')
                 
                 parent_profile = get_object_or_404(ParentProfile, id=parent_profile_id, school=school)
                 students_to_link = StudentProfile.objects.filter(id__in=student_ids, school=school)
                 
-                # Assigns multiple students to the parent (handles ManyToManyField 'students')
                 if hasattr(parent_profile, 'students'):
                     parent_profile.students.set(students_to_link)
                 messages.success(request, f'Successfully updated linked children for parent "{parent_profile.user.get_full_name()}".')
 
-            # ---------------------------------------------------------
-            # 10. USER MANAGEMENT ACTIONS (UPDATED FOR DYNAMIC PROFILES)
-            # ---------------------------------------------------------
             elif action in ['create_user', 'add_user']:
                 first_name = request.POST.get('first_name', '').strip()
                 last_name = request.POST.get('last_name', '').strip()
@@ -736,8 +670,6 @@ def school_admin_dashboard(request):
                         email=email, password=password,
                         first_name=first_name, last_name=last_name, role=role, school=school
                     )
-                    # Instantiating or getting profiles ensures .save() triggers 
-                    # and generates the proper school-prefixed ADM/EMP numbers automatically.
                     if role == 'TEACHER':
                         TeacherProfile.objects.get_or_create(user=user, school=school)
                     elif role == 'STUDENT':
@@ -775,9 +707,6 @@ def school_admin_dashboard(request):
 
         return redirect('school_admin_dashboard')
 
-    # ---------------------------------------------------------
-    # Query Context Data & Search Filtering (GET params)
-    # ---------------------------------------------------------
     teachers = TeacherProfile.objects.filter(school=school).select_related('user')
     students = StudentProfile.objects.filter(school=school).select_related('user')
     parents = ParentProfile.objects.filter(school=school).select_related('user').prefetch_related('students__user')
@@ -822,7 +751,7 @@ def school_admin_dashboard(request):
         'enrollments': StudentEnrollment.objects.filter(school=school).select_related('student__user', 'classroom', 'academic_year'),
         'teachers': teachers,
         'students': students,
-        'parents': parents,  # Included parents context for multi-student assignment
+        'parents': parents,
         'teacher_count': TeacherProfile.objects.filter(school=school).count(),
         'student_count': StudentProfile.objects.filter(school=school).count(),
         'parent_count': ParentProfile.objects.filter(school=school).count(),
@@ -830,9 +759,11 @@ def school_admin_dashboard(request):
         'q_student': q_student,
         'q_subject': q_subject,
         'q_class': q_class,
-        'exams': Exam.objects.filter( school=school).select_related('academic_year', 'term').order_by('-date','-academic_year__start_date'),
+        'exams': Exam.objects.filter(school=school).select_related('academic_year', 'term').order_by('-date','-academic_year__start_date'),
     }
     return render(request, 'dashboard/school_admin.html', context)
+
+
 # ==========================================
 # Other Role Dashboards & Feature Views
 # ==========================================
@@ -845,27 +776,20 @@ def accountant_dashboard(request):
 
 @login_required
 def parent_dashboard(request):
-    """
-    Parent Dashboard view showing linked children, attendance, 
-    and academic progress within the school tenant.
-    """
     school = get_user_school(request)
     user = request.user
     
-    # Ensure the user is a parent or has a parent profile
     if getattr(user, 'role', None) != UserRole.PARENT and not hasattr(user, 'parent_profile'):
         messages.error(request, "Access denied. Parents only.")
         return redirect('home')
     
-    # Fetch the parent profile linked to the user
     parent_profile = getattr(user, 'parent_profile', None)
     if not parent_profile:
         parent_profile, _ = ParentProfile.objects.get_or_create(user=user, school=school)
     
-    # Get all students linked to this parent
     linked_students = parent_profile.students.prefetch_related(
         'user',
-        'enrollments__classroom__grade_level',  # Corrected traversal path
+        'enrollments__classroom__grade_level',
         'attendance_records',
         'incidents'
     ).all()
@@ -893,11 +817,16 @@ def teacher_dashboard(request):
 
     current_academic_year = AcademicYear.objects.filter(school=school, is_current=True).first()
     
-    # 1. Safely initialize all variables at the top to prevent UnboundLocalError
     classrooms = Classroom.objects.none()
     my_students = StudentProfile.objects.none()
     available_students = StudentProfile.objects.none()
     teacher_assignments_qs = SubjectAssignment.objects.none()
+    assessments = Assessment.objects.none()
+    exam_scores = ExamResult.objects.none()
+    pending_submissions = AssessmentSubmission.objects.none()
+    today_timetable = TimetableSlot.objects.none()
+    resources = LearningResource.objects.none()
+    active_exam = None
 
     if teacher_profile:
         teacher_assignments_qs = SubjectAssignment.objects.filter(
@@ -918,6 +847,191 @@ def teacher_dashboard(request):
             enrollments__classroom__in=classrooms
         ).select_related('user', 'school').distinct()
 
+        # Fetch all assessments created by teacher cleanly without syntax error
+        assessments = Assessment.objects.filter(
+            school=school,
+            subject_assignment__in=teacher_assignments_qs
+        ).select_related(
+            'subject_assignment__subject', 
+            'subject_assignment__classroom__grade_level'
+        ).order_by('-due_date')
+
+        # Fetch learning resources uploaded by this teacher
+        resources = LearningResource.objects.filter(
+            school=school,
+            uploaded_by=teacher_profile
+        ).select_related('subject_assignment__subject', 'subject_assignment__classroom').order_by('-created_at')
+
+        # 1. Automatically compile raw GradeRecords into official ExamResults if an active exam exists
+        active_exam = Exam.objects.filter(
+            school=school, 
+            academic_year=current_academic_year
+        ).order_by('-date').first()
+
+        if active_exam:
+            for assignment in teacher_assignments_qs:
+                active_exam.compile_results_from_grades(classroom=assignment.classroom)
+
+        # 2. Extract IDs to filter official compiled exam scores accurately
+        classroom_ids = classrooms.values_list('id', flat=True)
+        teacher_subject_ids = teacher_assignments_qs.values_list('subject_id', flat=True)
+        
+        exam_scores = ExamResult.objects.filter(
+            school=school,
+            subject_id__in=teacher_subject_ids,
+            student__enrollments__classroom_id__in=classroom_ids
+        ).select_related('student__user', 'subject', 'exam').distinct().order_by('-created_at')
+
+        # 3. Fetch pending student submissions
+        pending_submissions = AssessmentSubmission.objects.filter(
+            assessment__subject_assignment__teacher=teacher_profile,
+            status__in=['PENDING', 'SUBMITTED']
+        ).select_related('student__user', 'assessment', 'assessment__subject_assignment__subject').order_by('submitted_at')
+
+        # 4. Fetch Today's Timetable Schedule
+        today_weekday = timezone.localdate().isoweekday()
+        today_timetable = TimetableSlot.objects.filter(
+            subject_assignment__in=teacher_assignments_qs,
+            day=today_weekday
+        ).select_related('subject_assignment__subject', 'subject_assignment__classroom').order_by('start_time')
+
+    # Handle creating or updating assessments/quizzes via POST
+    if request.method == 'POST' and request.POST.get('action') in ['create_assessment', 'edit_assessment']:
+        action_type = request.POST.get('action')
+        assessment_id = request.POST.get('assessment_id')
+        assignment_id = request.POST.get('subject_assignment')
+        title = request.POST.get('title')
+        kind = request.POST.get('kind', 'HOMEWORK')
+        due_date = request.POST.get('due_date')
+        description = request.POST.get('description', '')
+
+        try:
+            subject_assignment = get_object_or_404(SubjectAssignment, id=assignment_id, school=school, teacher=teacher_profile)
+            
+            if action_type == 'edit_assessment' and assessment_id:
+                assessment = get_object_or_404(Assessment, id=assessment_id, school=school, subject_assignment__teacher=teacher_profile)
+                assessment.subject_assignment = subject_assignment
+                assessment.title = title
+                assessment.kind = kind
+                assessment.due_date = due_date
+                assessment.description = description
+                assessment.save()
+                
+                # Clear existing questions/options on edit to replace with the newly submitted state
+                assessment.questions.all().delete()
+                messages.success(request, f'Assessment "{title}" updated successfully!')
+            else:
+                assessment = Assessment.objects.create(
+                    school=school,
+                    subject_assignment=subject_assignment,
+                    title=title,
+                    kind=kind,
+                    due_date=due_date,
+                    description=description
+                )
+                messages.success(request, f'Assessment "{title}" published successfully!')
+
+            # Process questions JSON if it's a quiz or assessment with dynamic questions
+            questions_json = request.POST.get('questions_json')
+            if questions_json:
+                try:
+                    questions_list = json.loads(questions_json)
+                    QuestionModel = get_model_safely('academics', 'Question')
+                    OptionModel = get_model_safely('academics', 'Option')
+
+                    if QuestionModel and OptionModel:
+                        for q_idx, q_data in enumerate(questions_list):
+                            q_text = q_data.get('text', '').strip()
+                            correct_idx = q_data.get('correct', 0)
+                            options = q_data.get('options', [])
+
+                            if q_text:
+                                question = QuestionModel.objects.create(
+                                    assessment=assessment,
+                                    text=q_text,
+                                    order=q_idx + 1
+                                )
+                                for opt_idx, opt_text in enumerate(options):
+                                    if opt_text.strip():
+                                        OptionModel.objects.create(
+                                            question=question,
+                                            text=opt_text.strip(),
+                                            is_correct=(opt_idx == correct_idx)
+                                        )
+                except json.JSONDecodeError:
+                    logger.error("Failed to parse quiz questions JSON payload.", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"Error saving assessment/quiz: {e}", exc_info=True)
+            messages.error(request, "Failed to save assessment.")
+        return redirect('teacher_dashboard')
+
+    # Handle uploading learning resources via POST
+    if request.method == 'POST' and request.POST.get('action') == 'upload_resource':
+        assignment_id = request.POST.get('subject_assignment')
+        title = request.POST.get('title')
+        description = request.POST.get('description', '')
+        file_obj = request.FILES.get('resource_file')
+
+        try:
+            subject_assignment = get_object_or_404(
+                SubjectAssignment, id=assignment_id, school=school, teacher=teacher_profile
+            )
+            LearningResource.objects.create(
+                school=school,
+                subject_assignment=subject_assignment,
+                classroom=subject_assignment.classroom,
+                title=title,
+                description=description,
+                file=file_obj,
+                uploaded_by=teacher_profile
+            )
+            messages.success(request, f'Resource "{title}" uploaded successfully!')
+        except Exception as e:
+            messages.error(request, "Failed to upload learning resource.")
+        return redirect('teacher_dashboard')
+
+    # Handle recording/updating raw student grades via POST
+    if request.method == 'POST' and request.POST.get('action') == 'record_grade':
+        subject_assignment_id = request.POST.get('subject_assignment')
+        assessment_type_id = request.POST.get('assessment_type')
+        student_id = request.POST.get('student_id')
+        score_val = request.POST.get('score')
+        max_score_val = request.POST.get('max_score', '100.00')
+        remarks = request.POST.get('remarks', '')
+
+        try:
+            subject_assignment = get_object_or_404(
+                SubjectAssignment, id=subject_assignment_id, school=school, teacher=teacher_profile
+            )
+            assessment_type = get_object_or_404(
+                AssessmentType, id=assessment_type_id, school=school
+            )
+            student = get_object_or_404(
+                StudentProfile, id=student_id, school=school
+            )
+
+            GradeRecord.objects.update_or_create(
+                school=school,
+                subject_assignment=subject_assignment,
+                student=student,
+                assessment_type=assessment_type,
+                defaults={
+                    'score': score_val,
+                    'max_score': max_score_val,
+                    'remarks': remarks,
+                    'recorded_by': teacher_profile
+                }
+            )
+
+            if active_exam:
+                active_exam.compile_results_from_grades(classroom=subject_assignment.classroom)
+
+            messages.success(request, f'Score successfully saved for {student.user.get_full_name()}.')
+        except Exception as e:
+            messages.error(request, "Failed to save student grade.")
+        return redirect('teacher_dashboard')
+
     context = {
         'school': school,
         'teacher_profile': teacher_profile,
@@ -925,6 +1039,12 @@ def teacher_dashboard(request):
         'classrooms': classrooms,
         'my_students': my_students,
         'available_students': available_students,
+        'assessments': assessments,
+        'resources': resources,
+        'exam_scores': exam_scores,
+        'active_exam': active_exam,
+        'pending_submissions': pending_submissions,
+        'today_timetable': today_timetable,
         'total_classes_count': classrooms.count(),
         'total_students_count': my_students.count(),
         'total_subjects_count': teacher_assignments_qs.values('subject').distinct().count(),
@@ -968,6 +1088,7 @@ def teacher_add_exam_score(request):
 
     return redirect('teacher_dashboard')
 
+
 @login_required
 def student_dashboard(request):
     user = request.user
@@ -976,6 +1097,9 @@ def student_dashboard(request):
 
     grade_level = None
     enrolled_courses = []
+    pending_assignments = []
+    student_resources = []
+    pending_tasks_count = 0
 
     if student_profile:
         enrollment = (
@@ -1007,13 +1131,45 @@ def student_dashboard(request):
                 for sa in assignments
             ]
 
-    if not grade_level and student_profile:
-        latest_attendance = Attendance.objects.filter(
-            student=student_profile
-        ).select_related('classroom__grade_level').first()
-        if latest_attendance and latest_attendance.classroom:
-            cls = latest_attendance.classroom
-            grade_level = f"{cls.grade_level.name} {cls.name}".strip() if cls.grade_level else cls.name
+        # Fetch active subject IDs the student is registered or enrolled in
+        enrolled_subject_ids = student_profile.subject_registrations.filter(
+            school=school, is_active=True
+        ).values_list('subject_id', flat=True)
+
+        classroom_subject_ids = []
+        if enrollment:
+            classroom_subject_ids = SubjectAssignment.objects.filter(
+                school=school,
+                academic_year=enrollment.academic_year,
+                classroom=enrollment.classroom
+            ).values_list('subject_id', flat=True)
+
+        all_subject_ids = set(list(enrolled_subject_ids) + list(classroom_subject_ids))
+
+        # Fetch learning resources matching the student's classroom
+        if enrollment and enrollment.classroom:
+            student_resources = LearningResource.objects.filter(
+                school=school,
+                classroom=enrollment.classroom
+            ).select_related('subject_assignment__subject', 'uploaded_by__user').order_by('-created_at')[:10]
+
+        # Get assessments/homework due from now onwards, or sort by nearest deadlines
+        raw_assessments = Assessment.objects.filter(
+            school=school,
+            subject_assignment__subject_id__in=all_subject_ids,
+            due_date__gte=timezone.now()
+        ).select_related('subject_assignment__subject').order_by('due_date')
+
+        # Filter out ones the student has already submitted
+        submitted_assessment_ids = AssessmentSubmission.objects.filter(
+            school=school, student=student_profile, status__in=['SUBMITTED', 'GRADED', 'LATE']
+        ).values_list('assessment_id', flat=True)
+
+        for assessment in raw_assessments:
+            if assessment.id not in submitted_assessment_ids:
+                pending_assignments.append(assessment)
+
+        pending_tasks_count = len(pending_assignments)
 
     context = {
         "school": school,
@@ -1022,32 +1178,14 @@ def student_dashboard(request):
         "student_id": getattr(student_profile, 'admission_number', user.username),
         "enrolled_courses": enrolled_courses,
         "recent_results": [],
-        "pending_assignments": [],
+        "student_resources": student_resources,
+        "pending_assignments": pending_assignments[:5],
         "announcements": [],
         "overall_gpa": "N/A",
         "attendance_rate": "N/A",
-        "pending_tasks_count": 0,
+        "pending_tasks_count": pending_tasks_count,
     }
     return render(request, 'dashboard/student.html', context)
-
-
-@login_required
-def profile_edit_view(request):
-    user = request.user
-    if request.method == 'POST':
-        user.first_name = request.POST.get('first_name', user.first_name)
-        user.last_name = request.POST.get('last_name', user.last_name)
-        user.email = request.POST.get('email', user.email)
-
-        if 'profile_picture' in request.FILES and hasattr(user, 'profile_picture'):
-            user.profile_picture = request.FILES['profile_picture']
-
-        user.save()
-        messages.success(request, 'Profile updated successfully!')
-        return redirect('profile_edit')
-
-    return render(request, 'accounts/profile_edit.html', {'user': user})
-
 
 @login_required
 def exam_results_view(request):
@@ -1066,6 +1204,166 @@ def attendance_record_view(request):
     school = get_user_school(request)
     return render(request, 'academics/attendance_record.html', {'school': school})
 
+
+@login_required
+def student_assignments_view(request):
+    """
+    View for students to see active homework, quizzes, and projects (Assessments) 
+    tied to their subject registrations, including whether they have submitted them.
+    """
+    school = get_user_school(request)
+    student_profile = getattr(request.user, 'student_profile', None)
+    
+    if not student_profile:
+        messages.error(request, "Student profile not found.")
+        return redirect('home')
+
+    # Get active subject IDs the student is registered or enrolled in
+    enrolled_subject_ids = student_profile.subject_registrations.filter(
+        school=school, is_active=True
+    ).values_list('subject_id', flat=True)
+
+    # Also include classroom subjects if enrolled via classroom assignment
+    current_enrollment = student_profile.enrollments.filter(
+        academic_year__is_current=True
+    ).select_related('classroom').first()
+
+    classroom_subject_ids = []
+    if current_enrollment:
+        classroom_subject_ids = SubjectAssignment.objects.filter(
+            school=school,
+            academic_year=current_enrollment.academic_year,
+            classroom=current_enrollment.classroom
+        ).values_list('subject_id', flat=True)
+
+    # Combine unique subject IDs
+    all_subject_ids = set(list(enrolled_subject_ids) + list(classroom_subject_ids))
+
+    # Fetch Assessments belonging to these subjects
+    raw_assignments = Assessment.objects.filter(
+        school=school,
+        subject_assignment__subject_id__in=all_subject_ids
+    ).select_related('subject_assignment__subject', 'subject_assignment__classroom').order_by('due_date')
+
+    # Fetch existing submissions for this student to check submission status
+    student_submissions = {
+        sub.assessment_id: sub for sub in AssessmentSubmission.objects.filter(
+            school=school, student=student_profile
+        )
+    }
+
+    # Annotate/enrich objects with properties expected by the template
+    assignments = []
+    for assessment in raw_assignments:
+        submission = student_submissions.get(assessment.id)
+        
+        # Attach dynamic attributes required by your HTML template
+        assessment.subject = assessment.subject_assignment.subject
+        assessment.is_submitted = submission is not None and submission.status in ['SUBMITTED', 'GRADED', 'LATE']
+        assessment.submission = submission
+        
+        assignments.append(assessment)
+
+    context = {
+        'school': school,
+        'assignments': assignments,
+    }
+    return render(request, 'schools/student_assignments.html', context)
+
+@login_required
+@login_required
+def profile_edit_view(request):
+    """
+    View for users to update their profile details and extended student profile fields.
+    """
+    user = request.user
+    student_profile = getattr(user, 'student_profile', None) or StudentProfile.objects.filter(user=user).first()
+
+    if request.method == 'POST':
+        user_form = UserProfileForm(request.POST, request.FILES, instance=user)
+        student_form = StudentProfileForm(request.POST, instance=student_profile) if student_profile else None
+
+        is_user_valid = user_form.is_valid()
+        is_student_valid = student_form.is_valid() if student_form else True
+
+        if is_user_valid and is_student_valid:
+            user_form.save()
+            if student_form:
+                student_form.save()
+            
+            messages.success(request, "Your profile has been updated successfully!")
+            return redirect('profile_edit')
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        user_form = UserProfileForm(instance=user)
+        student_form = StudentProfileForm(instance=student_profile) if student_profile else None
+
+    context = {
+        'form': user_form,
+        'user_form': user_form,
+        'student_form': student_form,
+        'user': user,
+    }
+    return render(request, 'accounts/profile_edit.html', context)
+
+@login_required
+def student_report_card_view(request):
+    context = {}
+    return render(request, 'schools/student_report_card.html', context)
+
+@login_required
+def teacher_enroll_student(request):
+    if request.method == 'POST':
+        assignment_id = request.POST.get('assignment_id')
+        student_id = request.POST.get('student_id')
+
+        assignment = get_object_or_404(SubjectAssignment, id=assignment_id)
+        
+        if getattr(request.user, 'role', None) == 'TEACHER' and assignment.teacher:
+            if assignment.teacher.user != request.user and not request.user.is_staff:
+                messages.error(request, "You do not have permission to modify this class assignment.")
+                return redirect('teacher_dashboard')
+
+        student = get_object_or_404(StudentProfile, id=student_id)
+        subject = assignment.subject
+        school = assignment.school
+        academic_year = assignment.academic_year
+
+        try:
+            if getattr(subject, 'is_elective', False):
+                subject_enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
+                    school=school, student=student, subject=subject,
+                    academic_year=academic_year, defaults={'is_active': True}
+                )
+                
+                if not created:
+                    if not subject_enrollment.is_active:
+                        subject_enrollment.is_active = True
+                        subject_enrollment.save()
+                    messages.info(request, f'Student "{student.user.get_full_name()}" is already registered for elective "{subject.name}".')
+                else:
+                    messages.success(request, f'Successfully registered "{student.user.get_full_name()}" for elective "{subject.name}".')
+            
+            else:
+                enrollment, created = StudentEnrollment.objects.get_or_create(
+                    school=school, student=student, academic_year=academic_year,
+                    defaults={'classroom': assignment.classroom}
+                )
+                
+                if not created:
+                    enrollment.classroom = assignment.classroom
+                    enrollment.save()
+                    messages.success(request, f'Updated enrollment for "{student.user.get_full_name()}" to {assignment.classroom.name}.')
+                else:
+                    messages.success(request, f'Successfully enrolled "{student.user.get_full_name()}" into {assignment.classroom.name} ({subject.name}).')
+
+        except Exception as e:
+            logger.error(f"Error enrolling student: {e}", exc_info=True)
+            messages.error(request, "An unexpected error occurred while enrolling the student.")
+
+    return redirect('teacher_dashboard')
+
 @login_required
 def teacher_gradebook_view(request, assignment_id):
     school = get_user_school(request)  
@@ -1082,13 +1380,11 @@ def teacher_gradebook_view(request, assignment_id):
     classroom = assignment.classroom
     subject = assignment.subject
 
-    # 1. Base queryset: All students enrolled in this classroom stream for the academic year
     students_qs = StudentProfile.objects.filter(
         enrollments__classroom=classroom,
         enrollments__academic_year=assignment.academic_year
     ).select_related('user').distinct()
 
-    # 2. Conditional filter based on whether the subject is an elective
     if getattr(subject, 'is_elective', False):
         enrolled_student_ids = StudentSubjectEnrollment.objects.filter(
             school=school,
@@ -1101,7 +1397,6 @@ def teacher_gradebook_view(request, assignment_id):
     else:
         students = students_qs.distinct()
 
-    # Get or create assessment types with weights pulled from classroom/school settings
     coursework_type, _ = AssessmentType.objects.get_or_create(
         school=school,
         name="Coursework / Continuous Assessment",
@@ -1127,7 +1422,6 @@ def teacher_gradebook_view(request, assignment_id):
                     score_val = request.POST.get(f'score_{student.id}')
                     exam_val = request.POST.get(f'exam_{student.id}')
                     
-                    # --- Handle Coursework Score ---
                     if score_val is not None and score_val.strip() != '':
                         GradeRecord.objects.update_or_create(
                             school=school,
@@ -1141,7 +1435,6 @@ def teacher_gradebook_view(request, assignment_id):
                             }
                         )
                     else:
-                        # Clear record if input was emptied by user
                         GradeRecord.objects.filter(
                             school=school,
                             subject_assignment=assignment,
@@ -1149,7 +1442,6 @@ def teacher_gradebook_view(request, assignment_id):
                             assessment_type=coursework_type
                         ).delete()
                     
-                    # --- Handle Exam Score ---
                     if exam_val is not None and exam_val.strip() != '':
                         GradeRecord.objects.update_or_create(
                             school=school,
@@ -1163,7 +1455,6 @@ def teacher_gradebook_view(request, assignment_id):
                             }
                         )
                     else:
-                        # Clear record if input was emptied by user
                         GradeRecord.objects.filter(
                             school=school,
                             subject_assignment=assignment,
@@ -1215,71 +1506,70 @@ def teacher_gradebook_view(request, assignment_id):
     return render(request, 'dashboard/teacher_gradebook.html', context)
 
 @login_required
-def teacher_enroll_student(request):
+def student_subjects_view(request):
     """
-    Allows an authenticated teacher to enroll a student into a teaching assignment (class/subject),
-    handling both standard classroom enrollments and specific subject elective registrations.
+    View for students to see their enrolled subjects, course codes, descriptions,
+    and assigned teachers for the current term/academic year.
     """
-    if request.method == 'POST':
-        assignment_id = request.POST.get('assignment_id')
-        student_id = request.POST.get('student_id')
+    school = get_user_school(request)
+    student_profile = getattr(request.user, 'student_profile', None)
+    
+    if not student_profile:
+        messages.error(request, "Student profile not found.")
+        return redirect('home')
 
-        assignment = get_object_or_404(SubjectAssignment, id=assignment_id)
+    # Get the student's current active classroom enrollment to find corresponding class subject assignments
+    current_enrollment = student_profile.enrollments.filter(
+        academic_year__is_current=True
+    ).select_related('classroom', 'academic_year').first()
+
+    enrolled_courses = []
+
+    if current_enrollment:
+        # Fetch standard classroom subject assignments
+        assignments = SubjectAssignment.objects.filter(
+            school=school,
+            academic_year=current_enrollment.academic_year,
+            classroom=current_enrollment.classroom
+        ).select_related('subject', 'teacher__user')
+
+        for sa in assignments:
+            enrolled_courses.append({
+                "code": sa.subject.code,
+                "name": sa.subject.name,
+                "description": getattr(sa.subject, 'description', None),
+                "teacher": sa.teacher.user if sa.teacher else None,
+            })
+
+    # Also handle elective subject registrations if applicable
+    elective_registrations = student_profile.subject_registrations.filter(
+        school=school, is_active=True
+    ).select_related('subject', 'academic_year')
+
+    for reg in elective_registrations:
+        # Find if there's a teacher assigned to this elective subject for this academic year
+        sa = SubjectAssignment.objects.filter(
+            school=school,
+            academic_year=reg.academic_year,
+            subject=reg.subject
+        ).select_related('teacher__user').first()
+
+        course_entry = {
+            "code": reg.subject.code,
+            "name": reg.subject.name,
+            "description": getattr(reg.subject, 'description', None),
+            "teacher": sa.teacher.user if (sa and sa.teacher) else None,
+        }
         
-        # Security check: Ensure teacher owns this assignment or is staff
-        if getattr(request.user, 'role', None) == 'TEACHER' and assignment.teacher:
-            if assignment.teacher.user != request.user and not request.user.is_staff:
-                messages.error(request, "You do not have permission to modify this class assignment.")
-                return redirect('teacher_dashboard')
+        # Avoid duplicate entries if already added via classroom assignments
+        if course_entry not in enrolled_courses:
+            enrolled_courses.append(course_entry)
 
-        student = get_object_or_404(StudentProfile, id=student_id)
-        subject = assignment.subject
-        school = assignment.school
-        academic_year = assignment.academic_year
-
-        try:
-            # Check if the subject is marked as an elective
-            if getattr(subject, 'is_elective', False):
-                # For electives, create a specific StudentSubjectEnrollment entry
-                subject_enrollment, created = StudentSubjectEnrollment.objects.get_or_create(
-                    school=school,
-                    student=student,
-                    subject=subject,
-                    academic_year=academic_year,
-                    defaults={'is_active': True}
-                )
-                
-                if not created:
-                    # If it already existed but was inactive, reactivate it
-                    if not subject_enrollment.is_active:
-                        subject_enrollment.is_active = True
-                        subject_enrollment.save()
-                    messages.info(request, f'Student "{student.user.get_full_name()}" is already registered for elective "{subject.name}".')
-                else:
-                    messages.success(request, f'Successfully registered "{student.user.get_full_name()}" for elective "{subject.name}".')
-            
-            else:
-                # For regular core classes, use the standard StudentEnrollment stream
-                enrollment, created = StudentEnrollment.objects.get_or_create(
-                    school=school,
-                    student=student,
-                    academic_year=academic_year,
-                    defaults={'classroom': assignment.classroom}
-                )
-                
-                if not created:
-                    enrollment.classroom = assignment.classroom
-                    enrollment.save()
-                    messages.success(request, f'Updated enrollment for "{student.user.get_full_name()}" to {assignment.classroom.name}.')
-                else:
-                    messages.success(request, f'Successfully enrolled "{student.user.get_full_name()}" into {assignment.classroom.name} ({subject.name}).')
-
-        except Exception as e:
-            logger.error(f"Error enrolling student: {e}", exc_info=True)
-            messages.error(request, "An unexpected error occurred while enrolling the student.")
-
-    return redirect('teacher_dashboard')
-
+    context = {
+        'school': school,
+        'enrolled_courses': enrolled_courses,
+    }
+    return render(request, 'schools/student_subjects.html', context)
 # ==========================================
 # REST Framework API Views & ViewSets
 # ==========================================

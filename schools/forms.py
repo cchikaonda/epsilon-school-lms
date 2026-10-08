@@ -1,187 +1,131 @@
-import uuid
 from django import forms
 from django.contrib.auth import get_user_model
-
-from schools.models import School, SchoolSetting, AcademicYear, Term
-from academics.models import GradeLevel, Classroom
+from schools.models import School
+from accounts.models import StudentProfile, TeacherProfile, ParentProfile, SchoolAdminProfile
 
 User = get_user_model()
 
 
-# ==========================================
-# SYSTEM & USER MANAGEMENT FORMS
-# ==========================================
-
 class SchoolForm(forms.ModelForm):
+    """Form for managing School tenant details."""
     class Meta:
         model = School
-        fields = ['name', 'code', 'is_active']
+        fields = ['name', 'code', 'email', 'phone_number', 'website', 'address', 'motto', 'logo', 'timezone']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500'}),
-            'code': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg focus:ring-emerald-500 focus:border-emerald-500'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'rounded text-emerald-600 focus:ring-emerald-500'}),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'code': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'website': forms.URLInput(attrs={'class': 'form-control'}),
+            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'motto': forms.TextInput(attrs={'class': 'form-control'}),
+            'timezone': forms.TextInput(attrs={'class': 'form-control'}),
+        }
+
+
+class SchoolProfileForm(forms.ModelForm):
+    """Form for initial school tenant creation."""
+    class Meta:
+        model = School
+        fields = ['name', 'code', 'email', 'phone_number', 'address']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'School Name'}),
+            'code': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'School Code (e.g. KAK)'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'admin@school.com'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone Number'}),
+            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Physical Address'}),
         }
 
 
 class UserManagementForm(forms.ModelForm):
-    password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-        required=False
-    )
+    """Form for creating or updating users at the system/school admin level."""
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), required=False)
 
     class Meta:
         model = User
-        fields = [
-            User.USERNAME_FIELD,
-            'email',
-            'first_name',
-            'last_name',
-            'role',
-            'school',
-            'is_active',
-            'is_staff',
-            'is_superuser'
-        ] if User.USERNAME_FIELD != 'email' else [
-            'email',
-            'first_name',
-            'last_name',
-            'role',
-            'school',
-            'is_active',
-            'is_staff',
-            'is_superuser'
-        ]
-        
+        fields = ['first_name', 'last_name', 'email', 'role', 'school', 'is_active', 'phone_number']
         widgets = {
-            'email': forms.EmailInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'first_name': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'last_name': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'role': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'school': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'is_active': forms.CheckboxInput(attrs={'class': 'rounded text-emerald-600'}),
-            'is_staff': forms.CheckboxInput(attrs={'class': 'rounded text-emerald-600'}),
-            'is_superuser': forms.CheckboxInput(attrs={'class': 'rounded text-emerald-600'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'role': forms.Select(attrs={'class': 'form-select'}),
+            'school': forms.Select(attrs={'class': 'form-select'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        username_field = User.USERNAME_FIELD
-        if username_field in self.fields:
-            self.fields[username_field].widget.attrs.update({'class': 'w-full px-3 py-2 border rounded-lg'})
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        if self.cleaned_data.get("password"):
-            user.set_password(self.cleaned_data["password"])
+        password = self.cleaned_data.get('password')
+        if password:
+            user.set_password(password)
         if commit:
             user.save()
         return user
 
 
-# ==========================================
-# SCHOOL ADMIN SETTINGS & CALENDAR FORMS
-# ==========================================
-class SchoolProfileForm(forms.ModelForm):
+class UserProfileForm(forms.ModelForm):
+    """Form for users to edit their own core personal account details."""
     class Meta:
-        model = School
-        fields = ['name', 'logo', 'primary_color', 'secondary_color', 'email', 'phone_number', 'address', 'city', 'country']
+        model = User
+        fields = ['first_name', 'last_name', 'phone_number', 'profile_picture']
         widgets = {
-            'name': forms.TextInput(attrs={
-                'class': 'w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition'
-            }),
-            'logo': forms.FileInput(attrs={
-                'class': 'w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 file:cursor-pointer cursor-pointer bg-slate-800 border border-slate-700 rounded-xl px-3 py-2'
-            }),
-            'primary_color': forms.TextInput(attrs={
-                'type': 'color', 
-                'class': 'h-11 w-full rounded-xl bg-slate-800 border border-slate-700 cursor-pointer p-1'
-            }),
-            'secondary_color': forms.TextInput(attrs={
-                'type': 'color', 
-                'class': 'h-11 w-full rounded-xl bg-slate-800 border border-slate-700 cursor-pointer p-1'
-            }),
-            'email': forms.EmailInput(attrs={
-                'class': 'w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition'
-            }),
-            'phone_number': forms.TextInput(attrs={
-                'class': 'w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition'
-            }),
-            'address': forms.Textarea(attrs={
-                'rows': 2, 
-                'class': 'w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition'
-            }),
-            'city': forms.TextInput(attrs={
-                'class': 'w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition'
-            }),
-            'country': forms.TextInput(attrs={
-                'class': 'w-full rounded-xl bg-slate-800 border border-slate-700 text-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition'
-            }),
-        }
-
-class SchoolSettingForm(forms.ModelForm):
-    class Meta:
-        model = SchoolSetting
-        fields = ['currency_code', 'currency_symbol', 'enable_sms_notifications', 'enable_online_payments']
-        widgets = {
-            'currency_code': forms.TextInput(attrs={'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'currency_symbol': forms.TextInput(attrs={'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'enable_sms_notifications': forms.CheckboxInput(attrs={'class': 'w-5 h-5 rounded bg-slate-800 border-slate-700 text-indigo-600'}),
-            'enable_online_payments': forms.CheckboxInput(attrs={'class': 'w-5 h-5 rounded bg-slate-800 border-slate-700 text-indigo-600'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'profile_picture': forms.FileInput(attrs={'class': 'form-control'}),
         }
 
 
-class AcademicYearForm(forms.ModelForm):
+class StudentProfileForm(forms.ModelForm):
+    """Form for managing student-specific personal info (DOB, Gender, Guardian details)."""
     class Meta:
-        model = AcademicYear
-        fields = ['name', 'start_date', 'end_date', 'is_current']
+        model = StudentProfile
+        fields = ['date_of_birth', 'gender', 'guardian_name', 'guardian_phone', 'address']
         widgets = {
-            'name': forms.TextInput(attrs={'placeholder': 'e.g. 2025/2026', 'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'end_date': forms.DateInput(attrs={'type': 'date', 'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'is_current': forms.CheckboxInput(attrs={'class': 'w-5 h-5 rounded bg-slate-800 border-slate-700 text-indigo-600'}),
+            'date_of_birth': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'gender': forms.Select(attrs={'class': 'form-select'}),
+            'guardian_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'guardian_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
         }
 
 
-class TermForm(forms.ModelForm):
-    class Meta:
-        model = Term
-        fields = ['academic_year', 'name', 'start_date', 'end_date', 'is_current']
-        widgets = {
-            'academic_year': forms.Select(attrs={'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'name': forms.TextInput(attrs={'placeholder': 'e.g. Term 1', 'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'end_date': forms.DateInput(attrs={'type': 'date', 'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'is_current': forms.CheckboxInput(attrs={'class': 'w-5 h-5 rounded bg-slate-800 border-slate-700 text-indigo-600'}),
-        }
+class SchoolSettingForm(forms.Form):
+    """Form configuration for general school policy options."""
+    currency_code = forms.CharField(max_length=10, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    pass_rate = forms.DecimalField(max_digits=5, decimal_places=2, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    coursework_weight = forms.DecimalField(max_digits=5, decimal_places=2, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+    exam_weight = forms.DecimalField(max_digits=5, decimal_places=2, widget=forms.NumberInput(attrs={'class': 'form-control'}))
+
+
+class AcademicYearForm(forms.Form):
+    name = forms.CharField(max_length=100, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    start_date = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
+    end_date = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
+    is_current = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
+
+
+class TermForm(forms.Form):
+    name = forms.CharField(max_length=100, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    academic_year = forms.ModelChoiceField(queryset=School.objects.none(), widget=forms.Select(attrs={'class': 'form-select'}))
+    start_date = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
+    end_date = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
+    is_current = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}))
 
     def __init__(self, *args, **kwargs):
         school = kwargs.pop('school', None)
         super().__init__(*args, **kwargs)
         if school:
+            from academics.models import AcademicYear
             self.fields['academic_year'].queryset = AcademicYear.objects.filter(school=school)
 
 
-class GradeLevelForm(forms.ModelForm):
-    class Meta:
-        model = GradeLevel
-        fields = ['name', 'level_order']
-        widgets = {
-            'name': forms.TextInput(attrs={'placeholder': 'e.g. Form 1', 'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'level_order': forms.NumberInput(attrs={'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-        }
+class GradeLevelForm(forms.Form):
+    name = forms.CharField(max_length=100, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    level_order = forms.IntegerField(widget=forms.NumberInput(attrs={'class': 'form-control'}))
 
 
-class StreamForm(forms.ModelForm):
-    class Meta:
-        model = Classroom
-        fields = ['grade_level', 'name']
-        widgets = {
-            'grade_level': forms.Select(attrs={'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-            'name': forms.TextInput(attrs={'placeholder': 'e.g. East, Blue, or Alpha', 'class': 'w-full rounded-xl bg-slate-800 border-slate-700 text-white px-4 py-2.5'}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        school = kwargs.pop('school', None)
-        super().__init__(*args, **kwargs)
-        if school:
-            self.fields['grade_level'].queryset = GradeLevel.objects.filter(school=school)
+class StreamForm(forms.Form):
+    name = forms.CharField(max_length=100, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    grade_level = forms.CharField(max_length=100, widget=forms.TextInput(attrs={'class': 'form-control'}))
