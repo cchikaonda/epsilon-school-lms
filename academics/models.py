@@ -366,12 +366,8 @@ class Exam(models.Model):
         term_str = f" - {self.term.name}" if self.term else ""
         return f"{self.name}{term_str} ({self.academic_year.name})"
 
+
     def compile_results_from_grades(self, classroom=None):
-        """
-        Aggregates GradeRecords, applies assessment weightings, merges continuous 
-        assessment vs end of term percentages using classroom-configured weights 
-        (e.g., 40% Continuous / 60% Exam), and upserts official ExamResults.
-        """
         assignments = SubjectAssignment.objects.filter(
             school=self.school,
             academic_year=self.academic_year
@@ -380,11 +376,9 @@ class Exam(models.Model):
             assignments = assignments.filter(classroom=classroom)
 
         for assignment in assignments:
-            # Pull pre-configured weights for this classroom (e.g., 40 and 60)
             cw_total_weight = Decimal(str(assignment.classroom.get_coursework_weight())) / Decimal('100')
             ex_total_weight = Decimal(str(assignment.classroom.get_exam_weight())) / Decimal('100')
 
-            # Fetch enrolled students
             students = StudentProfile.objects.filter(
                 enrollments__classroom=assignment.classroom,
                 enrollments__academic_year=self.academic_year
@@ -401,7 +395,6 @@ class Exam(models.Model):
 
                 cw_weighted_score = Decimal('0.00')
                 cw_weight_sum = Decimal('0.00')
-
                 ex_weighted_score = Decimal('0.00')
                 ex_weight_sum = Decimal('0.00')
 
@@ -418,26 +411,31 @@ class Exam(models.Model):
                             ex_weighted_score += percentage * (weight / Decimal('100'))
                             ex_weight_sum += weight
 
-                # Normalize continuous vs exam pools
                 final_cw = (cw_weighted_score / (cw_weight_sum / Decimal('100'))) if cw_weight_sum > 0 else Decimal('0.00')
                 final_ex = (ex_weighted_score / (ex_weight_sum / Decimal('100'))) if ex_weight_sum > 0 else Decimal('0.00')
 
-                # Combine using the preset 40/60 split rule
                 final_percentage = (final_cw * cw_total_weight) + (final_ex * ex_total_weight)
                 actual_marks = (final_percentage / Decimal('100')) * self.total_marks
 
-                # Upsert final report card record
-                ExamResult.objects.update_or_create(
+                # Fetch or create the exam result record without forcing a hardcoded remark
+                exam_result, created = ExamResult.objects.get_or_create(
                     school=self.school,
                     exam=self,
                     student=student,
                     subject=assignment.subject,
                     defaults={
                         'marks_obtained': round(actual_marks, 2),
-                        'remarks': 'Auto-compiled from Continuous & Exam assessments'
                     }
                 )
-
+                
+                # Update marks if it already existed
+                exam_result.marks_obtained = round(actual_marks, 2)
+                
+                # Clearing any previous auto-compiled static text so save() recalculates the correct remark from the scale
+                exam_result.remarks = None 
+                
+                # Calling save() triggers the grade scale lookup and sets the correct grade & remark
+                exam_result.save()
 
 class ExamResult(models.Model):
     """
@@ -455,6 +453,8 @@ class ExamResult(models.Model):
     )
     grade = models.CharField(max_length=5, blank=True, null=True, help_text="e.g., A, B, C, D, F")
     remarks = models.TextField(blank=True, null=True)
+    position = models.PositiveIntegerField(null=True, blank=True, help_text="Rank position in class/stream (e.g., 1 for 1st)")
+    total_students = models.PositiveIntegerField(null=True, blank=True, help_text="Total number of students ranked in this class")
     recorded_by = models.ForeignKey(TeacherProfile, on_delete=models.SET_NULL, null=True, blank=True, related_name='recorded_exam_results')
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -469,31 +469,36 @@ class ExamResult(models.Model):
     def percentage(self):
         if self.exam.total_marks > 0:
             return (self.marks_obtained / self.exam.total_marks) * 100
-        return 0.00
+        return Decimal('0.00')
 
     def save(self, *args, **kwargs):
         """
-        Automatically computes and assigns the appropriate letter grade based on 
-        the classroom or school grading scale whenever saved.
+        Automatically computes and assigns the appropriate letter grade and matching 
+        remark based on the classroom or school grading scale whenever saved.
         """
         enrollment = self.student.enrollments.filter(academic_year=self.exam.academic_year).first()
         grading_scale = enrollment.classroom.get_grading_scale() if enrollment else self.school.settings.get_grading_scale()
         
         pct = float(self.percentage)
         assigned_grade = None
+        assigned_remark = None
         
         if grading_scale:
             sorted_scale = sorted(grading_scale, key=lambda x: x.get('min', 0), reverse=True)
             for tier in sorted_scale:
                 if pct >= tier.get('min', 0):
                     assigned_grade = tier.get('grade')
+                    # Expecting your grading scale JSON items to optionally include a 'remark' key
+                    assigned_remark = tier.get('remark') 
                     break
         
         if assigned_grade:
             self.grade = assigned_grade
+        
+        if assigned_remark and not self.remarks:
+            self.remarks = assigned_remark
             
         super().save(*args, **kwargs)
-
 
 @receiver(post_save, sender=School)
 def create_default_school_assessment_types(sender, instance, created, **kwargs):

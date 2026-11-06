@@ -26,9 +26,30 @@ class GradeLevelAdmin(admin.ModelAdmin):
 
 @admin.register(Classroom)
 class ClassroomAdmin(admin.ModelAdmin):
-    list_display = ('__str__', 'school', 'grade_level', 'name', 'class_teacher', 'capacity', 'pass_rate', 'coursework_weight', 'exam_weight')
+    list_display = (
+        '__str__', 
+        'school', 
+        'grade_level', 
+        'name', 
+        'class_teacher', 
+        'get_coursework_weight',  # Evaluates classroom override or falls back to school settings
+        'get_exam_weight',        # Evaluates classroom override or falls back to school settings
+        'get_pass_rate',          # Evaluates classroom override or falls back to school settings
+        'capacity'
+    )
     list_filter = ('school', 'grade_level')
     search_fields = ('name', 'grade_level__name', 'school__name')
+    
+    # Optional: If you want them cleanly grouped inside the detail edit form
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('school', 'grade_level', 'name', 'class_teacher', 'capacity')
+        }),
+        ('Weighting & Grading Overrides (Optional)', {
+            'fields': ('coursework_weight', 'exam_weight', 'pass_rate', 'grading_scale'),
+            'description': 'Leave blank to inherit global settings from the school profile.'
+        }),
+    )
 
 
 @admin.register(Subject)
@@ -123,11 +144,27 @@ class ExamAdmin(admin.ModelAdmin):
         )
 
 
+
 @admin.register(ExamResult)
 class ExamResultAdmin(admin.ModelAdmin):
-    list_display = ('student', 'exam', 'subject', 'marks_obtained', 'grade', 'percentage', 'school')
+    list_display = (
+        'student', 
+        'exam', 
+        'subject', 
+        'marks_obtained', 
+        'percentage',         # Displays the percentage property from the model
+        'grade', 
+        'remarks',            # Displays the auto-mapped remark
+        'school'
+    )
     list_filter = ('school', 'exam', 'subject', 'grade')
-    search_fields = ('student__user__first_name', 'student__user__last_name', 'subject__name')
+    search_fields = (
+        'student__user__first_name', 
+        'student__user__last_name', 
+        'subject__name', 
+        'remarks'             # Allows you to search records by remark keywords
+    )
+
 
 @admin.register(LearningResource)
 class LearningResourceAdmin(admin.ModelAdmin):

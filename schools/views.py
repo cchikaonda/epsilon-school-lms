@@ -2,8 +2,11 @@ import json
 import logging
 from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import Http404, HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
+from django.db.models import Avg, Sum, F, Window, OuterRef, Subquery, Count
+from django.db.models.functions import DenseRank
 
 from django.apps import apps
 from django.core.exceptions import PermissionDenied
@@ -94,12 +97,33 @@ class IsSchoolAdminOrTeacher(permissions.BasePermission):
         return is_system_admin(request.user) or is_school_admin(request.user) or is_teacher
 
 def get_user_school(request):
-    """Retrieve school tenant bound to current user or request context."""
-    school = getattr(request.user, 'school', None) or get_tenant_from_request(request)
-    if not school and is_system_admin(request.user):
+    """Retrieve school tenant bound to current user, session, or request context."""
+    school = None
+    
+    # 1. Check if explicitly stored in session (e.g. active superadmin selection)
+    if hasattr(request, 'session'):
+        school_id = request.session.get('active_school_id')
+        if school_id:
+            school = School.objects.filter(id=school_id).first()
+
+    # 2. Check direct user relation
+    if not school and request.user.is_authenticated and hasattr(request.user, 'school') and request.user.school:
+        school = request.user.school
+
+    # 3. Check request tenant/middleware
+    if not school:
+        school = get_tenant_from_request(request) or getattr(request, 'school', None)
+
+    # 4. Check GET parameter fallback
+    if not school:
         school_id = request.GET.get('school_id')
         if school_id:
-            return get_object_or_404(School, id=school_id)
+            school = School.objects.filter(id=school_id).first()
+
+    # 5. Fallback to first school in system if superuser
+    if not school and request.user.is_authenticated and request.user.is_superuser:
+        school = School.objects.first()
+
     return school
 
 
@@ -181,8 +205,18 @@ def system_admin_dashboard(request):
     schools = School.objects.all()
     users = User.objects.all().select_related('school')
     
+    if request.method == 'POST':
+        selected_school_id = request.POST.get('active_school_id')
+        if selected_school_id:
+            request.session['active_school_id'] = selected_school_id
+            messages.success(request, "Active school context updated successfully.")
+            return redirect('system_admin_dashboard')
+
+    active_school = get_user_school(request)
+
     context = {
         'schools': schools,
+        'active_school': active_school,
         'schools_count': schools.count(),
         'users_count': users.count(),
         'recent_users': users.order_by('-date_joined')[:10],
@@ -278,19 +312,29 @@ def user_delete_view(request, pk):
 
 @login_required
 @user_passes_test(is_school_admin)
-def school_settings_view(request):
-    school = get_object_or_404(School, id=request.user.school_id)
+def school_settings_view(request, school_id=None):
+    if school_id:
+        school = get_object_or_404(School, id=school_id)
+        if hasattr(request, 'session'):
+            request.session['active_school_id'] = str(school.id)
+    else:
+        school = get_user_school(request)
+
+    if not school:
+        raise Http404("No active school context found for this account or domain.")
+
     settings_obj, _ = SchoolSetting.objects.get_or_create(school=school)
-    classrooms = Classroom.objects.filter(school=school)
+    classrooms = Classroom.objects.filter(school=school).select_related('grade_level')
 
     if request.method == 'POST':
-        school.name = request.POST.get('name', school.name)
-        school.code = request.POST.get('code', school.code)
-        school.email = request.POST.get('email', school.email)
-        school.phone_number = request.POST.get('phone_number', school.phone_number)
-        school.website = request.POST.get('website', school.website)
-        school.address = request.POST.get('address', school.address)
-        school.motto = request.POST.get('motto', school.motto)
+        # 1. General Profile & Branding
+        school.name = request.POST.get('name', school.name).strip()
+        school.code = request.POST.get('code', school.code).strip()
+        school.email = request.POST.get('email', school.email).strip()
+        school.phone_number = request.POST.get('phone_number', school.phone_number).strip()
+        school.website = request.POST.get('website', school.website).strip()
+        school.address = request.POST.get('address', school.address).strip()
+        school.motto = request.POST.get('motto', school.motto).strip()
         school.timezone = request.POST.get('timezone', 'Africa/Blantyre')
 
         if 'logo' in request.FILES:
@@ -298,26 +342,50 @@ def school_settings_view(request):
 
         school.save()
 
+        # 2. Academic Defaults & Active Periods
+        current_ay_id = request.POST.get('current_academic_year_id')
+        if current_ay_id:
+            AcademicYear.objects.filter(school=school).update(is_current=False)
+            AcademicYear.objects.filter(id=current_ay_id, school=school).update(is_current=True)
+
+        current_term_id = request.POST.get('current_term_id')
+        if current_term_id:
+            Term.objects.filter(school=school).update(is_current=False)
+            Term.objects.filter(id=current_term_id, school=school).update(is_current=True)
+
+        # 3. Global Settings & Grading Scale JSON
         settings_obj.currency_code = request.POST.get('currency', 'MWK')
-        settings_obj.pass_rate = request.POST.get('pass_mark', 50)
-        settings_obj.coursework_weight = request.POST.get('coursework_weight', 40)
-        settings_obj.exam_weight = request.POST.get('exam_weight', 60)
+        
+        pass_mark = request.POST.get('pass_mark')
+        settings_obj.pass_rate = int(pass_mark) if pass_mark else 50
+
+        cw_weight = request.POST.get('coursework_weight')
+        settings_obj.coursework_weight = int(cw_weight) if cw_weight else 40
+
+        ew_weight = request.POST.get('exam_weight')
+        settings_obj.exam_weight = int(ew_weight) if ew_weight else 60
 
         grades_json = request.POST.get('grading_scale_json')
         if grades_json:
             try:
                 settings_obj.grading_scale = json.loads(grades_json)
             except json.JSONDecodeError:
-                pass
+                messages.error(request, "Invalid JSON formatting for the global grading scale.")
+
         settings_obj.save()
 
+        # 4. Handle Classroom-Specific Overrides if Scope is Active
         weight_scope = request.POST.get('weightScope', 'global')
         if weight_scope == 'class':
             for c in classrooms:
-                c.pass_rate = request.POST.get(f'class_pass_rate_{c.id}') or None
-                c.coursework_weight = request.POST.get(f'class_cw_{c.id}') or None
-                c.exam_weight = request.POST.get(f'class_ew_{c.id}') or None
-                
+                c_pass = request.POST.get(f'class_pass_rate_{c.id}')
+                c_cw = request.POST.get(f'class_cw_{c.id}')
+                c_ew = request.POST.get(f'class_ew_{c.id}')
+
+                c.pass_rate = int(c_pass) if c_pass else None
+                c.coursework_weight = int(c_cw) if c_cw else None
+                c.exam_weight = int(c_ew) if c_ew else None
+
                 class_grades_json = request.POST.get(f'class_grading_json_{c.id}')
                 if class_grades_json:
                     try:
@@ -326,14 +394,14 @@ def school_settings_view(request):
                         pass
                 c.save()
 
-        messages.success(request, "School settings and branding updated successfully!")
-        return redirect('school_settings')
+        messages.success(request, "School settings, branding, and grading parameters updated successfully!")
+        return redirect('school_settings', school_id=school.id)
 
     context = {
         'school': school,
-        'academic_years': AcademicYear.objects.filter(school=school),
-        'terms': Term.objects.filter(school=school),
-        'classrooms': classrooms,
+        'academic_years': AcademicYear.objects.filter(school=school).order_by('-start_date'),
+        'terms': Term.objects.filter(school=school).select_related('academic_year').order_by('-start_date'),
+        'classrooms': classrooms.order_by('grade_level__level_order', 'name'),
     }
     return render(request, 'schools/school_settings.html', context)
 
@@ -474,6 +542,31 @@ def school_admin_dashboard(request):
                     exam.total_marks = total_marks
                 exam.save()
                 messages.success(request, f'Exam "{exam.name}" updated successfully.')
+
+            elif action in ['update_school_settings', 'update_settings']:
+                settings = school.settings
+                cw_weight = request.POST.get('coursework_weight')
+                ex_weight = request.POST.get('exam_weight')
+                pass_rate = request.POST.get('pass_rate')
+                grading_scale_json = request.POST.get('grading_scale')
+
+                if cw_weight:
+                    settings.coursework_weight = int(cw_weight)
+                if ex_weight:
+                    settings.exam_weight = int(ex_weight)
+                if pass_rate:
+                    settings.pass_rate = int(pass_rate)
+
+                if grading_scale_json:
+                    try:
+                        parsed_scale = json.loads(grading_scale_json)
+                        settings.grading_scale = parsed_scale
+                    except json.JSONDecodeError:
+                        messages.error(request, "Invalid JSON format for grading scale.")
+                        return redirect('school_admin_dashboard')
+
+                settings.save()
+                messages.success(request, "School grading and weight settings updated successfully.")
 
             elif action == 'delete_exam':
                 exam_id = request.POST.get('exam_id') or request.POST.get('id')
@@ -806,6 +899,7 @@ def parent_dashboard(request):
     }
     return render(request, 'dashboard/parent.html', context)
 
+
 @login_required
 def teacher_dashboard(request):
     school = get_user_school(request)
@@ -847,7 +941,6 @@ def teacher_dashboard(request):
             enrollments__classroom__in=classrooms
         ).select_related('user', 'school').distinct()
 
-        # Fetch all assessments created by teacher cleanly without syntax error
         assessments = Assessment.objects.filter(
             school=school,
             subject_assignment__in=teacher_assignments_qs
@@ -856,13 +949,11 @@ def teacher_dashboard(request):
             'subject_assignment__classroom__grade_level'
         ).order_by('-due_date')
 
-        # Fetch learning resources uploaded by this teacher
         resources = LearningResource.objects.filter(
             school=school,
             uploaded_by=teacher_profile
         ).select_related('subject_assignment__subject', 'subject_assignment__classroom').order_by('-created_at')
 
-        # 1. Automatically compile raw GradeRecords into official ExamResults if an active exam exists
         active_exam = Exam.objects.filter(
             school=school, 
             academic_year=current_academic_year
@@ -872,7 +963,6 @@ def teacher_dashboard(request):
             for assignment in teacher_assignments_qs:
                 active_exam.compile_results_from_grades(classroom=assignment.classroom)
 
-        # 2. Extract IDs to filter official compiled exam scores accurately
         classroom_ids = classrooms.values_list('id', flat=True)
         teacher_subject_ids = teacher_assignments_qs.values_list('subject_id', flat=True)
         
@@ -882,20 +972,17 @@ def teacher_dashboard(request):
             student__enrollments__classroom_id__in=classroom_ids
         ).select_related('student__user', 'subject', 'exam').distinct().order_by('-created_at')
 
-        # 3. Fetch pending student submissions
         pending_submissions = AssessmentSubmission.objects.filter(
             assessment__subject_assignment__teacher=teacher_profile,
             status__in=['PENDING', 'SUBMITTED']
         ).select_related('student__user', 'assessment', 'assessment__subject_assignment__subject').order_by('submitted_at')
 
-        # 4. Fetch Today's Timetable Schedule
         today_weekday = timezone.localdate().isoweekday()
         today_timetable = TimetableSlot.objects.filter(
             subject_assignment__in=teacher_assignments_qs,
             day=today_weekday
         ).select_related('subject_assignment__subject', 'subject_assignment__classroom').order_by('start_time')
 
-    # Handle creating or updating assessments/quizzes via POST
     if request.method == 'POST' and request.POST.get('action') in ['create_assessment', 'edit_assessment']:
         action_type = request.POST.get('action')
         assessment_id = request.POST.get('assessment_id')
@@ -917,7 +1004,6 @@ def teacher_dashboard(request):
                 assessment.description = description
                 assessment.save()
                 
-                # Clear existing questions/options on edit to replace with the newly submitted state
                 assessment.questions.all().delete()
                 messages.success(request, f'Assessment "{title}" updated successfully!')
             else:
@@ -931,7 +1017,6 @@ def teacher_dashboard(request):
                 )
                 messages.success(request, f'Assessment "{title}" published successfully!')
 
-            # Process questions JSON if it's a quiz or assessment with dynamic questions
             questions_json = request.POST.get('questions_json')
             if questions_json:
                 try:
@@ -966,7 +1051,6 @@ def teacher_dashboard(request):
             messages.error(request, "Failed to save assessment.")
         return redirect('teacher_dashboard')
 
-    # Handle uploading learning resources via POST
     if request.method == 'POST' and request.POST.get('action') == 'upload_resource':
         assignment_id = request.POST.get('subject_assignment')
         title = request.POST.get('title')
@@ -991,7 +1075,6 @@ def teacher_dashboard(request):
             messages.error(request, "Failed to upload learning resource.")
         return redirect('teacher_dashboard')
 
-    # Handle recording/updating raw student grades via POST
     if request.method == 'POST' and request.POST.get('action') == 'record_grade':
         subject_assignment_id = request.POST.get('subject_assignment')
         assessment_type_id = request.POST.get('assessment_type')
@@ -1052,6 +1135,7 @@ def teacher_dashboard(request):
     }
     return render(request, 'dashboard/teacher.html', context)
 
+
 @login_required
 def teacher_add_exam_score(request):
     if request.method == 'POST':
@@ -1101,6 +1185,10 @@ def student_dashboard(request):
     student_resources = []
     pending_tasks_count = 0
 
+    ca_results = []
+    exam_results_list = []
+    quiz_results_list = []
+
     if student_profile:
         enrollment = (
             student_profile.enrollments.filter(academic_year__is_current=True)
@@ -1131,7 +1219,6 @@ def student_dashboard(request):
                 for sa in assignments
             ]
 
-        # Fetch active subject IDs the student is registered or enrolled in
         enrolled_subject_ids = student_profile.subject_registrations.filter(
             school=school, is_active=True
         ).values_list('subject_id', flat=True)
@@ -1146,21 +1233,18 @@ def student_dashboard(request):
 
         all_subject_ids = set(list(enrolled_subject_ids) + list(classroom_subject_ids))
 
-        # Fetch learning resources matching the student's classroom
         if enrollment and enrollment.classroom:
             student_resources = LearningResource.objects.filter(
                 school=school,
                 classroom=enrollment.classroom
             ).select_related('subject_assignment__subject', 'uploaded_by__user').order_by('-created_at')[:10]
 
-        # Get assessments/homework due from now onwards, or sort by nearest deadlines
         raw_assessments = Assessment.objects.filter(
             school=school,
             subject_assignment__subject_id__in=all_subject_ids,
             due_date__gte=timezone.now()
         ).select_related('subject_assignment__subject').order_by('due_date')
 
-        # Filter out ones the student has already submitted
         submitted_assessment_ids = AssessmentSubmission.objects.filter(
             school=school, student=student_profile, status__in=['SUBMITTED', 'GRADED', 'LATE']
         ).values_list('assessment_id', flat=True)
@@ -1171,13 +1255,69 @@ def student_dashboard(request):
 
         pending_tasks_count = len(pending_assignments)
 
+        grade_records = GradeRecord.objects.filter(
+            school=school,
+            student=student_profile
+        ).select_related('subject_assignment__subject', 'assessment_type').order_by('-created_at')
+
+        for record in grade_records:
+            item = {
+                "title": record.assessment_type.name,
+                "subject": record.subject_assignment.subject,
+                "date": record.created_at,
+                "score": record.score,
+                "total_marks": record.max_score,
+                "remarks": record.remarks,
+                "percentage": record.percentage,
+            }
+            if record.assessment_type.category == AssessmentType.Category.COURSEWORK:
+                ca_results.append(item)
+            else:
+                exam_results_list.append(item)
+
+        official_exams = ExamResult.objects.filter(
+            school=school,
+            student=student_profile
+        ).select_related('subject', 'exam').order_by('-created_at')
+
+        for er in official_exams:
+            exam_results_list.append({
+                "title": er.exam.name,
+                "subject": er.subject,
+                "date": er.created_at,
+                "score": er.marks_obtained,
+                "total_marks": er.exam.total_marks,
+                "grade": er.grade,
+                "remarks": er.remarks,
+                "percentage": er.percentage,
+            })
+
+        quiz_submissions = AssessmentSubmission.objects.filter(
+            school=school,
+            student=student_profile,
+            status='GRADED',
+            assessment__kind=Assessment.AssessmentKind.QUIZ
+        ).select_related('assessment__subject_assignment__subject').order_by('-submitted_at')
+
+        for sub in quiz_submissions:
+            quiz_results_list.append({
+                "title": sub.assessment.title,
+                "subject": sub.assessment.subject_assignment.subject,
+                "date": sub.submitted_at,
+                "score": sub.score,
+                "total_marks": sub.assessment.total_marks,
+                "feedback": sub.feedback,
+            })
+
     context = {
         "school": school,
         "student_profile": student_profile,
         "grade_level": grade_level or "Unassigned Class",
         "student_id": getattr(student_profile, 'admission_number', user.username),
         "enrolled_courses": enrolled_courses,
-        "recent_results": [],
+        "ca_results": ca_results[:5],
+        "exam_results": exam_results_list[:5],
+        "quiz_results": quiz_results_list[:5],
         "student_resources": student_resources,
         "pending_assignments": pending_assignments[:5],
         "announcements": [],
@@ -1187,10 +1327,205 @@ def student_dashboard(request):
     }
     return render(request, 'dashboard/student.html', context)
 
+
 @login_required
 def exam_results_view(request):
     school = get_user_school(request)
-    return render(request, 'academics/exam_results.html', {'school': school})
+    user = request.user
+
+    student_profile = getattr(user, 'student_profile', None) or StudentProfile.objects.filter(user=user).first()
+    
+    if not student_profile and hasattr(user, 'parent_profile'):
+        student_profile = user.parent_profile.children.first()
+
+    end_of_term_results = []
+    mid_term_results = []
+    ca_results = []
+    quiz_results = []
+    latest_report_exam_id = None
+
+    if student_profile:
+        official_results = ExamResult.objects.filter(
+            school=school,
+            student=student_profile
+        ).select_related('subject', 'exam', 'exam__term', 'exam__academic_year').order_by('-exam__date')
+
+        for er in official_results:
+            exam_name_upper = er.exam.name.upper()
+            item = {
+                "id": er.id,
+                "exam_id": er.exam.id,
+                "student": er.student,
+                "exam_name": er.exam.name,
+                "term_name": er.exam.term.name if er.exam.term else "Term",
+                "academic_year": er.exam.academic_year.name if er.exam.academic_year else "",
+                "subject": er.subject,
+                "score": er.marks_obtained,
+                "max_score": er.exam.total_marks,
+                "grade": er.grade,
+                "remarks": er.remarks,
+                "date": er.exam.date,
+            }
+            if "MID" in exam_name_upper:
+                mid_term_results.append(item)
+            else:
+                end_of_term_results.append(item)
+
+        if official_results.exists():
+            latest_report_exam_id = official_results.first().exam.id
+
+        ca_records = GradeRecord.objects.filter(
+            school=school,
+            student=student_profile,
+            assessment_type__category=AssessmentType.Category.COURSEWORK
+        ).select_related('subject_assignment__subject', 'assessment_type', 'subject_assignment__classroom').order_by('-created_at')
+
+        for rec in ca_records:
+            ca_results.append({
+                "student": rec.student,
+                "classroom": rec.subject_assignment.classroom,
+                "subject": rec.subject_assignment.subject,
+                "assessment_type": rec.assessment_type.name,
+                "score": rec.score,
+                "max_score": rec.max_score,
+                "remarks": rec.remarks,
+                "date": rec.created_at,
+            })
+
+        quiz_submissions = AssessmentSubmission.objects.filter(
+            school=school,
+            student=student_profile,
+            status='GRADED',
+            assessment__kind=Assessment.AssessmentKind.QUIZ
+        ).select_related('assessment__subject_assignment__subject', 'assessment__subject_assignment__classroom').order_by('-submitted_at')
+
+        for sub in quiz_submissions:
+            quiz_results.append({
+                "student": sub.student,
+                "classroom": sub.assessment.subject_assignment.classroom,
+                "subject": sub.assessment.subject_assignment.subject,
+                "assessment_type": sub.assessment.title,
+                "score": sub.score,
+                "max_score": sub.assessment.total_marks,
+                "remarks": sub.feedback,
+                "date": sub.submitted_at,
+            })
+
+    context = {
+        'school': school,
+        'student_profile': student_profile,
+        'student_uuid': student_profile.id if student_profile else None,
+        'end_of_term_results': end_of_term_results,
+        'mid_term_results': mid_term_results,
+        'ca_results': ca_results,
+        'quiz_results': quiz_results,
+        'latest_report_exam_id': latest_report_exam_id,
+        'total_records': len(end_of_term_results) + len(mid_term_results) + len(ca_results) + len(quiz_results),
+    }
+    return render(request, 'academics/exam_results.html', context)
+
+
+@login_required
+def download_report_card_view(request, student_id, exam_id):
+    school = get_user_school(request)
+    student = get_object_or_404(StudentProfile, id=student_id, school=school)
+    exam = get_object_or_404(Exam, id=exam_id, school=school)
+
+    enrollment = student.enrollments.filter(academic_year=exam.academic_year).first()
+    classroom = enrollment.classroom if enrollment else None
+
+    subject_rank_subquery = (
+        ExamResult.objects.filter(
+            school=school,
+            exam=exam,
+            subject=OuterRef("subject"),
+            student__enrollments__classroom=classroom,
+            student__enrollments__academic_year=exam.academic_year,
+        )
+        .annotate(
+            calc_rank=Window(
+                expression=DenseRank(),
+                order_by=F("marks_obtained").desc(),
+            )
+        )
+        .filter(pk=OuterRef("pk"))
+        .values("calc_rank")
+    )
+
+    subject_count_subquery = (
+        ExamResult.objects.filter(
+            school=school,
+            exam=exam,
+            subject=OuterRef("subject"),
+            student__enrollments__classroom=classroom,
+            student__enrollments__academic_year=exam.academic_year,
+        )
+        .values("subject")
+        .annotate(total=Count("id"))
+        .values("total")
+    )
+
+    results = (
+        ExamResult.objects.filter(
+            school=school,
+            student=student,
+            exam=exam
+        )
+        .select_related('subject')
+        .annotate(
+            subject_rank=Subquery(subject_rank_subquery),
+            total_subject_takers=Subquery(subject_count_subquery)
+        )
+    )
+
+    overall_rank = None
+    total_class_students = 0
+    class_average = None
+
+    if classroom:
+        total_class_students = StudentProfile.objects.filter(
+            enrollments__classroom=classroom,
+            enrollments__academic_year=exam.academic_year
+        ).count()
+
+        student_rankings = (
+            ExamResult.objects.filter(
+                school=school,
+                exam=exam,
+                student__enrollments__classroom=classroom,
+                student__enrollments__academic_year=exam.academic_year
+            )
+            .values('student')
+            .annotate(total_score=Sum('marks_obtained'))
+            .order_by('-total_score')
+        )
+
+        for rank, entry in enumerate(student_rankings, start=1):
+            if str(entry['student']) == str(student.id):
+                overall_rank = rank
+                break
+
+        avg_data = ExamResult.objects.filter(
+            school=school,
+            exam=exam,
+            student__enrollments__classroom=classroom,
+            student__enrollments__academic_year=exam.academic_year
+        ).aggregate(avg_score=Avg('marks_obtained'))
+
+        if avg_data['avg_score'] is not None:
+            class_average = round(avg_data['avg_score'], 2)
+
+    context = {
+        'school': school,
+        'student': student,
+        'exam': exam,
+        'classroom': classroom,
+        'results': results,
+        'overall_rank': overall_rank,
+        'total_class_students': total_class_students,
+        'class_average': class_average,
+    }
+    return render(request, 'academics/report_card_pdf.html', context)
 
 
 @login_required
@@ -1207,10 +1542,6 @@ def attendance_record_view(request):
 
 @login_required
 def student_assignments_view(request):
-    """
-    View for students to see active homework, quizzes, and projects (Assessments) 
-    tied to their subject registrations, including whether they have submitted them.
-    """
     school = get_user_school(request)
     student_profile = getattr(request.user, 'student_profile', None)
     
@@ -1218,12 +1549,10 @@ def student_assignments_view(request):
         messages.error(request, "Student profile not found.")
         return redirect('home')
 
-    # Get active subject IDs the student is registered or enrolled in
     enrolled_subject_ids = student_profile.subject_registrations.filter(
         school=school, is_active=True
     ).values_list('subject_id', flat=True)
 
-    # Also include classroom subjects if enrolled via classroom assignment
     current_enrollment = student_profile.enrollments.filter(
         academic_year__is_current=True
     ).select_related('classroom').first()
@@ -1236,32 +1565,25 @@ def student_assignments_view(request):
             classroom=current_enrollment.classroom
         ).values_list('subject_id', flat=True)
 
-    # Combine unique subject IDs
     all_subject_ids = set(list(enrolled_subject_ids) + list(classroom_subject_ids))
 
-    # Fetch Assessments belonging to these subjects
     raw_assignments = Assessment.objects.filter(
         school=school,
         subject_assignment__subject_id__in=all_subject_ids
     ).select_related('subject_assignment__subject', 'subject_assignment__classroom').order_by('due_date')
 
-    # Fetch existing submissions for this student to check submission status
     student_submissions = {
         sub.assessment_id: sub for sub in AssessmentSubmission.objects.filter(
             school=school, student=student_profile
         )
     }
 
-    # Annotate/enrich objects with properties expected by the template
     assignments = []
     for assessment in raw_assignments:
         submission = student_submissions.get(assessment.id)
-        
-        # Attach dynamic attributes required by your HTML template
         assessment.subject = assessment.subject_assignment.subject
         assessment.is_submitted = submission is not None and submission.status in ['SUBMITTED', 'GRADED', 'LATE']
         assessment.submission = submission
-        
         assignments.append(assessment)
 
     context = {
@@ -1270,12 +1592,9 @@ def student_assignments_view(request):
     }
     return render(request, 'schools/student_assignments.html', context)
 
-@login_required
+
 @login_required
 def profile_edit_view(request):
-    """
-    View for users to update their profile details and extended student profile fields.
-    """
     user = request.user
     student_profile = getattr(user, 'student_profile', None) or StudentProfile.objects.filter(user=user).first()
 
@@ -1307,10 +1626,12 @@ def profile_edit_view(request):
     }
     return render(request, 'accounts/profile_edit.html', context)
 
+
 @login_required
 def student_report_card_view(request):
     context = {}
     return render(request, 'schools/student_report_card.html', context)
+
 
 @login_required
 def teacher_enroll_student(request):
@@ -1363,6 +1684,7 @@ def teacher_enroll_student(request):
             messages.error(request, "An unexpected error occurred while enrolling the student.")
 
     return redirect('teacher_dashboard')
+
 
 @login_required
 def teacher_gradebook_view(request, assignment_id):
@@ -1505,12 +1827,9 @@ def teacher_gradebook_view(request, assignment_id):
     }
     return render(request, 'dashboard/teacher_gradebook.html', context)
 
+
 @login_required
 def student_subjects_view(request):
-    """
-    View for students to see their enrolled subjects, course codes, descriptions,
-    and assigned teachers for the current term/academic year.
-    """
     school = get_user_school(request)
     student_profile = getattr(request.user, 'student_profile', None)
     
@@ -1518,7 +1837,6 @@ def student_subjects_view(request):
         messages.error(request, "Student profile not found.")
         return redirect('home')
 
-    # Get the student's current active classroom enrollment to find corresponding class subject assignments
     current_enrollment = student_profile.enrollments.filter(
         academic_year__is_current=True
     ).select_related('classroom', 'academic_year').first()
@@ -1526,7 +1844,6 @@ def student_subjects_view(request):
     enrolled_courses = []
 
     if current_enrollment:
-        # Fetch standard classroom subject assignments
         assignments = SubjectAssignment.objects.filter(
             school=school,
             academic_year=current_enrollment.academic_year,
@@ -1541,13 +1858,11 @@ def student_subjects_view(request):
                 "teacher": sa.teacher.user if sa.teacher else None,
             })
 
-    # Also handle elective subject registrations if applicable
     elective_registrations = student_profile.subject_registrations.filter(
         school=school, is_active=True
     ).select_related('subject', 'academic_year')
 
     for reg in elective_registrations:
-        # Find if there's a teacher assigned to this elective subject for this academic year
         sa = SubjectAssignment.objects.filter(
             school=school,
             academic_year=reg.academic_year,
@@ -1561,7 +1876,6 @@ def student_subjects_view(request):
             "teacher": sa.teacher.user if (sa and sa.teacher) else None,
         }
         
-        # Avoid duplicate entries if already added via classroom assignments
         if course_entry not in enrolled_courses:
             enrolled_courses.append(course_entry)
 
@@ -1570,6 +1884,8 @@ def student_subjects_view(request):
         'enrolled_courses': enrolled_courses,
     }
     return render(request, 'schools/student_subjects.html', context)
+
+
 # ==========================================
 # REST Framework API Views & ViewSets
 # ==========================================
@@ -1590,8 +1906,6 @@ class SchoolDomainInfoView(APIView):
 
 
 class DynamicBaseViewSet(viewsets.ModelViewSet):
-    """Scoped ViewSet dynamically enforcing multi-tenant boundaries."""
-
     permission_classes = [permissions.IsAuthenticated]
     model_name = None
 

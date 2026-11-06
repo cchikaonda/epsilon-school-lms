@@ -1,12 +1,12 @@
 {% extends 'base.html' %}
 
-{% block title %}Exam Results & Records | {{ school.name|default:"Epsilon LMS" }}{% endblock %}
+{% block title %}Child Academic Results | {{ school.name|default:"Epsilon LMS" }}{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" x-data="{ openFilterModal: false }">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8" x-data="{ activeTab: 'end_term' }">
   
   <!-- Header Section -->
-  <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
     <div>
       <div class="flex items-center gap-2 mb-1">
         <span class="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-400 px-2.5 py-0.5 rounded-md border border-emerald-200/50 dark:border-emerald-900/50">
@@ -16,77 +16,165 @@
         <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Examination Results</span>
       </div>
       <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-        Student Exam Records 📊
+        Academic Performance & Results 📊
       </h1>
-      <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">
-        Review student performance, term grades, and continuous assessment score sheets.
+      <p class="text-slate-600 dark:text-slate-300 text-sm mt-1">
+        Review term grades, mid-term evaluations, continuous assessment score sheets, and official school reports.
       </p>
     </div>
     
-    <div class="flex items-center gap-3">
-      <a href="{% url 'teacher_dashboard' %}" class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition">
-        <span>&larr;</span>
-        <span>Back to Workspace</span>
-      </a>
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Download School Report Card Button -->
+      {% if student_profile and latest_report_exam_id %}
+        <a href="{% url 'download_report_card' student_profile.pk latest_report_exam_id %}" target="_blank" 
+           class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md hover:shadow-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          <span>Download School Report</span>
+        </a>
+      {% else %}
+        <button disabled class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-400 text-sm font-bold cursor-not-allowed">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          <span>Report Card Unavailable</span>
+        </button>
+      {% endif %}
+
+      {% if user.role == 'PARENT' %}
+        <a href="{% url 'parent_dashboard' %}" class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+          <span>&larr;</span>
+          <span>Back to Portal</span>
+        </a>
+      {% else %}
+        <a href="{% url 'student_dashboard' %}" class="inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition">
+          <span>&larr;</span>
+          <span>Back to Dashboard</span>
+        </a>
+      {% endif %}
     </div>
   </div>
 
-  <!-- Results Table / Content Card -->
-  <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
+  <!-- Results Content Card with Category Tabs -->
+  <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
     
-    <!-- Table Header & Filters Info -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+    <!-- Header & Category Switcher Navigation -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
       <div>
-        <h2 class="text-lg font-extrabold text-slate-900 dark:text-white">Recorded Scores</h2>
-        <p class="text-xs text-slate-500 dark:text-slate-400">Showing all exam scores matching current term criteria.</p>
+        <h2 class="text-lg font-black text-slate-900 dark:text-white">Assessment Category Breakdown</h2>
+        <p class="text-xs font-medium text-slate-600 dark:text-slate-400">Select a category below to filter academic results.</p>
       </div>
       
-      <div class="flex items-center gap-2">
-        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl">
-          Total Entries: {{ results|length|default:"0" }}
-        </span>
+      <!-- Category Tabs -->
+      <div class="flex flex-wrap items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl text-xs font-bold">
+        <button type="button" @click="activeTab = 'end_term'" 
+                :class="activeTab === 'end_term' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'"
+                class="px-3.5 py-2 rounded-xl transition">
+          End of Term 🏆
+        </button>
+        <button type="button" @click="activeTab = 'mid_term'" 
+                :class="activeTab === 'mid_term' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'"
+                class="px-3.5 py-2 rounded-xl transition">
+          Mid-Term 📊
+        </button>
+        <button type="button" @click="activeTab = 'ca'" 
+                :class="activeTab === 'ca' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'"
+                class="px-3.5 py-2 rounded-xl transition">
+          Continuous Assessment 📝
+        </button>
+        <button type="button" @click="activeTab = 'quizzes'" 
+                :class="activeTab === 'quizzes' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'"
+                class="px-3.5 py-2 rounded-xl transition">
+          Quizzes & Tests 💡
+        </button>
       </div>
     </div>
 
-    <!-- Results Data Table -->
-    <div class="overflow-x-auto">
-      {% if results %}
+    <!-- TAB 1: END OF TERM RESULTS -->
+    <div x-show="activeTab === 'end_term'" class="overflow-x-auto">
+      {% if end_of_term_results %}
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              <th class="py-3 px-4">Student Name</th>
-              <th class="py-3 px-4">Class</th>
+            <tr class="border-b border-slate-200 dark:border-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50">
+              <th class="py-3 px-4">Exam Period</th>
               <th class="py-3 px-4">Subject</th>
-              <th class="py-3 px-4">Assessment Type</th>
-              <th class="py-3 px-4 text-center">Score</th>
+              <th class="py-3 px-4 text-center">Grade</th>
+              <th class="py-3 px-4 text-center">Marks Scored</th>
               <th class="py-3 px-4">Remarks</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
-            {% for record in results %}
-              <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition">
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm font-medium">
+            {% for record in end_of_term_results %}
+              <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
                 <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
-                  {{ record.student.user.get_full_name|default:record.student.user.username }}
-                  {% if record.student.admission_number %}
-                    <span class="block text-[11px] font-normal text-slate-400">{{ record.student.admission_number }}</span>
+                  {{ record.exam_name }}
+                  <span class="block text-xs font-semibold text-slate-500 dark:text-slate-400">{{ record.term_name }} ({{ record.academic_year }})</span>
+                </td>
+                <td class="py-3.5 px-4 text-slate-800 dark:text-slate-200 font-bold text-xs">
+                  {{ record.subject.name }}
+                </td>
+                <td class="py-3.5 px-4 text-center">
+                  {% if record.grade %}
+                    <span class="text-xs font-black bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 px-3 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                      {{ record.grade }}
+                    </span>
+                  {% else %}
+                    <span class="text-xs text-slate-400">--</span>
                   {% endif %}
-                </td>
-                <td class="py-3.5 px-4 text-slate-600 dark:text-slate-300 text-xs">
-                  {{ record.subject_assignment.classroom.grade_level.name }} {{ record.subject_assignment.classroom.name }}
-                </td>
-                <td class="py-3.5 px-4 text-slate-700 dark:text-slate-300 font-medium text-xs">
-                  {{ record.subject_assignment.subject.name }}
-                </td>
-                <td class="py-3.5 px-4">
-                  <span class="text-[11px] font-bold text-brand bg-brand/10 dark:bg-brand/20 px-2.5 py-1 rounded-lg">
-                    {{ record.assessment_type.name|default:"Exam" }}
-                  </span>
                 </td>
                 <td class="py-3.5 px-4 text-center">
                   <span class="font-extrabold text-slate-900 dark:text-white">{{ record.score }}</span>
-                  <span class="text-xs text-slate-400">/ {{ record.max_score|default:"100" }}</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">/ {{ record.max_score|default:"100" }}</span>
                 </td>
-                <td class="py-3.5 px-4 text-xs text-slate-500 dark:text-slate-400 italic">
+                <td class="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300 italic">
+                  {{ record.remarks|default:"Auto-compiled report card entry" }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="py-12 text-center">
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">No End of Term Results Published</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">End of term exam grades will appear here once compiled by the administration.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- TAB 2: MID-TERM RESULTS -->
+    <div x-show="activeTab === 'mid_term'" x-cloak class="overflow-x-auto">
+      {% if mid_term_results %}
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 dark:border-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50">
+              <th class="py-3 px-4">Evaluation Event</th>
+              <th class="py-3 px-4">Subject</th>
+              <th class="py-3 px-4 text-center">Grade</th>
+              <th class="py-3 px-4 text-center">Marks Scored</th>
+              <th class="py-3 px-4">Remarks</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm font-medium">
+            {% for record in mid_term_results %}
+              <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                  {{ record.exam_name }}
+                  <span class="block text-xs font-semibold text-slate-500 dark:text-slate-400">{{ record.term_name }}</span>
+                </td>
+                <td class="py-3.5 px-4 text-slate-800 dark:text-slate-200 font-bold text-xs">
+                  {{ record.subject.name }}
+                </td>
+                <td class="py-3.5 px-4 text-center">
+                  {% if record.grade %}
+                    <span class="text-xs font-black bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-200 px-3 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                      {{ record.grade }}
+                    </span>
+                  {% else %}
+                    <span class="text-xs text-slate-400">--</span>
+                  {% endif %}
+                </td>
+                <td class="py-3.5 px-4 text-center">
+                  <span class="font-extrabold text-slate-900 dark:text-white">{{ record.score }}</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">/ {{ record.max_score|default:"100" }}</span>
+                </td>
+                <td class="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300 italic">
                   {{ record.remarks|default:"--" }}
                 </td>
               </tr>
@@ -94,13 +182,97 @@
           </tbody>
         </table>
       {% else %}
-        <!-- Empty State -->
-        <div class="py-16 text-center">
-          <svg class="w-12 h-12 mx-auto text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-          </svg>
-          <h3 class="text-base font-bold text-slate-900 dark:text-white">No Exam Results Recorded</h3>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Go to your Teacher Dashboard under the "Quizzes & Exams" tab to add score records.</p>
+        <div class="py-12 text-center">
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">No Mid-Term Results Published</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Mid-term evaluation scores have not been published for this term yet.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- TAB 3: CONTINUOUS ASSESSMENT -->
+    <div x-show="activeTab === 'ca'" x-cloak class="overflow-x-auto">
+      {% if ca_results %}
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 dark:border-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50">
+              <th class="py-3 px-4">Assessment Type</th>
+              <th class="py-3 px-4">Subject</th>
+              <th class="py-3 px-4">Date Recorded</th>
+              <th class="py-3 px-4 text-center">Score</th>
+              <th class="py-3 px-4">Teacher Remarks</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm font-medium">
+            {% for record in ca_results %}
+              <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                  {{ record.assessment_type }}
+                </td>
+                <td class="py-3.5 px-4 text-slate-800 dark:text-slate-200 font-bold text-xs">
+                  {{ record.subject.name }}
+                </td>
+                <td class="py-3.5 px-4 text-slate-600 dark:text-slate-400 text-xs font-semibold">
+                  {{ record.date|date:"M d, Y" }}
+                </td>
+                <td class="py-3.5 px-4 text-center">
+                  <span class="font-extrabold text-slate-900 dark:text-white">{{ record.score }}</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">/ {{ record.max_score|default:"100" }}</span>
+                </td>
+                <td class="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300 italic">
+                  {{ record.remarks|default:"No remarks provided" }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="py-12 text-center">
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">No Continuous Assessment Records</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Classroom continuous assessment marks will appear here once entered by teachers.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- TAB 4: QUIZZES & ONLINE TESTS -->
+    <div x-show="activeTab === 'quizzes'" x-cloak class="overflow-x-auto">
+      {% if quiz_results %}
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 dark:border-slate-800 text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50">
+              <th class="py-3 px-4">Quiz Title</th>
+              <th class="py-3 px-4">Subject</th>
+              <th class="py-3 px-4">Submitted Date</th>
+              <th class="py-3 px-4 text-center">Score</th>
+              <th class="py-3 px-4">Feedback</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm font-medium">
+            {% for quiz in quiz_results %}
+              <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                <td class="py-3.5 px-4 font-bold text-slate-900 dark:text-white">
+                  {{ quiz.assessment_type }}
+                </td>
+                <td class="py-3.5 px-4 text-slate-800 dark:text-slate-200 font-bold text-xs">
+                  {{ quiz.subject.name }}
+                </td>
+                <td class="py-3.5 px-4 text-slate-600 dark:text-slate-400 text-xs font-semibold">
+                  {{ quiz.date|date:"M d, Y" }}
+                </td>
+                <td class="py-3.5 px-4 text-center">
+                  <span class="font-extrabold text-emerald-600 dark:text-emerald-400">{{ quiz.score }}</span>
+                  <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">/ {{ quiz.max_score|default:"100" }}</span>
+                </td>
+                <td class="py-3.5 px-4 text-xs text-slate-600 dark:text-slate-300 italic">
+                  {{ quiz.remarks|default:"--" }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="py-12 text-center">
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">No Quiz Results Available</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Graded quiz submissions will appear here.</p>
         </div>
       {% endif %}
     </div>

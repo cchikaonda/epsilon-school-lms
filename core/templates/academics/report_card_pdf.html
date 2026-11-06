@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Report Card - {{ student.user.get_full_name|default:student.user.username }}</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 15mm;
+    }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11px;
+      color: #0f172a;
+      margin: 0;
+      padding: 0;
+    }
+    
+    /* Header Container */
+    .header-container {
+      display: table;
+      width: 100%;
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+    .header-logo-cell {
+      display: table-cell;
+      width: 90px;
+      vertical-align: middle;
+    }
+    .header-logo {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .header-info-cell {
+      display: table-cell;
+      vertical-align: middle;
+      text-align: center;
+    }
+    .header-info-cell h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+    }
+    .school-motto {
+      margin: 3px 0 6px 0;
+      font-size: 11px;
+      font-style: italic;
+      color: #475569;
+      font-weight: 600;
+    }
+    .school-contact-info {
+      margin: 0;
+      font-size: 10px;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    .report-title-banner {
+      text-align: center;
+      background-color: #f1f5f9;
+      padding: 6px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      border: 1px solid #e2e8f0;
+      color: #0f172a;
+    }
+
+    /* Student & Academic Period Metadata Table */
+    .info-table {
+      width: 100%;
+      margin-bottom: 20px;
+      border-collapse: collapse;
+    }
+    .info-table td {
+      padding: 5px 4px;
+      vertical-align: top;
+    }
+    .info-label {
+      font-weight: bold;
+      color: #475569;
+      width: 16%;
+    }
+    .info-value {
+      width: 34%;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    /* Results Table */
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .results-table th {
+      background-color: #0f172a;
+      color: #ffffff;
+      border: 1px solid #0f172a;
+      padding: 8px;
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .results-table td {
+      border: 1px solid #cbd5e1;
+      padding: 8px;
+    }
+    .results-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .grade-badge {
+      font-weight: 900;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    /* Signatures & Footer */
+    .signature-grid {
+      width: 100%;
+      margin-top: 40px;
+      border-collapse: collapse;
+    }
+    .signature-grid td {
+      width: 50%;
+      vertical-align: bottom;
+      padding-top: 35px;
+    }
+    .signature-line {
+      border-top: 1px dashed #0f172a;
+      width: 75%;
+      margin-top: 5px;
+      padding-top: 4px;
+      font-size: 10px;
+      font-weight: bold;
+      color: #475569;
+    }
+
+    .footer-note {
+      margin-top: 30px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+      text-align: center;
+      font-size: 9px;
+      color: #94a3b8;
+    }
+
+    @media print {
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Print Toolbar Button -->
+  <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+    <button onclick="window.print()" style="background-color: #0f172a; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+
+  <!-- School Header with Logo and Details -->
+  <div class="header-container">
+    {% if school.logo %}
+      <div class="header-logo-cell">
+        <img src="{{ school.logo.url }}" alt="{{ school.name }}" class="header-logo">
+      </div>
+    {% endif %}
+    
+    <div class="header-info-cell">
+      <h1>{{ school.name }}</h1>
+      {% if school.motto %}
+        <p class="school-motto">"{{ school.motto }}"</p>
+      {% endif %}
+      <p class="school-contact-info">
+        {% if school.address %}{{ school.address }}{% endif %}
+        {% if school.city %}{% if school.address %}, {% endif %}{{ school.city }}{% endif %}
+        {% if school.country %}, {{ school.country }}{% endif %}
+        <br>
+        {% if school.phone_number %}Phone: {{ school.phone_number }}{% endif %}
+        {% if school.email %}{% if school.phone_number %} | {% endif %}Email: {{ school.email }}{% endif %}
+        {% if school.website %}{% if school.email or school.phone_number %} | {% endif %}Web: {{ school.website }}{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="report-title-banner">
+    Official Student Academic Report Card
+  </div>
+
+  <!-- Student, Classroom & Ranking Info Banner -->
+  <table class="info-table">
+    <tr>
+      <td class="info-label">Student Name:</td>
+      <td class="info-value">{{ student.user.get_full_name|default:student.user.username }}</td>
+      <td class="info-label">Class / Stream:</td>
+      <td class="info-value">
+        {% if classroom %}
+          {{ classroom.grade_level.name }} {{ classroom.name }}
+        {% else %}
+          Unassigned Class
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td class="info-label">Student ID:</td>
+      <td class="info-value">{{ student.admission_number|default:student.id }}</td>
+      <td class="info-label">Class Enrollment:</td>
+      <td class="info-value">{{ total_class_students|default:"0" }} Students</td>
+    </tr>
+    <tr>
+      <td class="info-label">Academic Term:</td>
+      <td class="info-value">{{ exam.term.name|default:"Term 1" }} ({{ exam.academic_year.name }})</td>
+      <td class="info-label">Class Position:</td>
+      <td class="info-value" style="color: #047857; font-size: 12px;">
+        {% if overall_rank and total_class_students %}
+          <strong>Position {{ overall_rank }}</strong> out of <strong>{{ total_class_students }}</strong>
+        {% else %}
+          N/A
+        {% endif %}
+      </td>
+    </tr>
+    <tr>
+      <td class="info-label">Evaluation Event:</td>
+      <td class="info-value">{{ exam.name }}</td>
+      <td class="info-label">Class Average:</td>
+      <td class="info-value">{% if class_average %}{{ class_average }}%{% else %}N/A{% endif %}</td>
+    </tr>
+  </table>
+
+  <!-- Results Breakdown Table with Per-Subject Ranking & Remarks -->
+  <table class="results-table">
+    <thead>
+      <tr>
+        <th>Subject Name</th>
+        <th style="text-align: center;">Marks Scored</th>
+        <th style="text-align: center;">Maximum Marks</th>
+        <th style="text-align: center;">Grade</th>
+        <th style="text-align: center;">Subject Rank</th>
+        <th>Remarks</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if results %}
+        {% for result in results %}
+          <tr>
+            <td><strong>{{ result.subject.name }}</strong></td>
+            <td style="text-align: center; font-weight: bold;">{{ result.marks_obtained }}</td>
+            <td style="text-align: center; color: #64748b;">{{ exam.total_marks|default:"100.00" }}</td>
+            <td class="grade-badge">{{ result.grade|default:"--" }}</td>
+            <td style="text-align: center; font-weight: bold;">
+                {% if result.subject_rank %}
+                    {{ result.subject_rank }} out of {{ result.total_subject_takers|default:"1" }}
+                {% else %}
+                    1 out of 1
+                {% endif %}
+            </td>
+            <td style="font-style: italic; color: #475569;">{{ result.remarks|default:"Satisfactory performance" }}</td>
+          </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 20px; color: #94a3b8;">
+            No subject grade records found for this examination event.
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <!-- Official Signatures Block -->
+  <table class="signature-grid">
+    <tr>
+      <td>
+        <div class="signature-line">Class Teacher Signature & Date</div>
+      </td>
+      <td style="text-align: right;">
+        <div class="signature-line" style="margin-left: auto;">Headteacher / Principal Signature</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Footer Info -->
+  <div class="footer-note">
+    Generated on {% now "F d, Y" %} • Official Academic Record of {{ school.name }}
+  </div>
+
+</body>
+</html>

@@ -19,6 +19,7 @@ from schools.views import (
     attendance_record_view,
     teacher_gradebook_view,
     teacher_add_exam_score,
+    download_report_card_view,
 )
 
 urlpatterns = [
@@ -51,7 +52,8 @@ urlpatterns = [
     path('exams/results/', exam_results_view, name='exam_results'),
     path('assignments/', assignments_list_view, name='assignments_list'),
     path('attendance/', attendance_record_view, name='attendance_record'),
-]
+    path('student/<str:student_id>/report/<uuid:exam_id>/download/',  download_report_card_view, name='download_report_card'),
+    ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

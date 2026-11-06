@@ -48,28 +48,28 @@
             <button @click="activeTab = 'profile'"
                     x-show="!searchQuery || 'general profile info name code email phone website address'.includes(searchQuery.toLowerCase())"
                     :class="activeTab === 'profile' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'"
-                    class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-3">
+                    class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-3" type="button">
                 <i class="fas fa-school w-5 text-center"></i>
                 <span>General Profile</span>
             </button>
             <button @click="activeTab = 'branding'"
                     x-show="!searchQuery || 'branding logo assets motto tagline'.includes(searchQuery.toLowerCase())"
                     :class="activeTab === 'branding' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'"
-                    class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-3">
+                    class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-3" type="button">
                 <i class="fas fa-paint-brush w-5 text-center"></i>
                 <span>Branding & Logo</span>
             </button>
             <button @click="activeTab = 'defaults'"
                     x-show="!searchQuery || 'academic defaults year term currency timezone regional'.includes(searchQuery.toLowerCase())"
                     :class="activeTab === 'defaults' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'"
-                    class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-3">
+                    class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-3" type="button">
                 <i class="fas fa-sliders-h w-5 text-center"></i>
                 <span>Academic Defaults</span>
             </button>
             <button @click="activeTab = 'grading'"
                     x-show="!searchQuery || 'grading weighting pass mark coursework exam scale class'.includes(searchQuery.toLowerCase())"
                     :class="activeTab === 'grading' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400 font-semibold' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'"
-                    class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-3">
+                    class="w-full text-left px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-3" type="button">
                 <i class="fas fa-award w-5 text-center"></i>
                 <span>Grading & Weighting</span>
             </button>

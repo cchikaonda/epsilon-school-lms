@@ -62,6 +62,7 @@
         <button @click="activeTab = 'exams'" :class="activeTab === 'exams' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">Examinations</button>
         <button @click="activeTab = 'parents'" :class="activeTab === 'parents' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">Parent-Student Links</button>
         <button @click="activeTab = 'users'" :class="activeTab === 'users' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">User Accounts</button>
+        <button @click="activeTab = 'settings'" :class="activeTab === 'settings' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-2 border-b-2 font-medium text-sm transition">Grading & Settings</button>
     </div>
 
     <!-- Messages -->
@@ -803,6 +804,54 @@
                     {% endfor %}
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TAB 10: SETTINGS & GRADING SCALE           -->
+    <!-- ========================================== -->
+    <div x-show="activeTab === 'settings'" class="space-y-6">
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <h3 class="text-lg font-bold mb-2 text-slate-900 dark:text-white">Global School Settings & Grading Scale</h3>
+            <p class="text-xs text-slate-500 mb-6">Configure overall assessment weight distributions and JSON-based grading tiers for report cards.</p>
+            
+            <form method="POST" class="space-y-4">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_school_settings">
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Continuous Assessment Weight (%)</label>
+                        <input type="number" name="coursework_weight" value="{{ school.settings.coursework_weight|default:40 }}" min="0" max="100" required class="w-full px-3 py-2 border rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Exam Weight (%)</label>
+                        <input type="number" name="exam_weight" value="{{ school.settings.exam_weight|default:60 }}" min="0" max="100" required class="w-full px-3 py-2 border rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Default Pass Rate (%)</label>
+                        <input type="number" name="pass_rate" value="{{ school.settings.pass_rate|default:50 }}" min="0" max="100" required class="w-full px-3 py-2 border rounded-lg text-sm dark:bg-slate-800 dark:border-slate-700">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium mb-1 text-slate-700 dark:text-slate-300">Grading Scale & Remarks (JSON format)</label>
+                    <p class="text-[11px] text-slate-400 mb-2">Define minimum thresholds, letter grades, and report card remarks as a valid JSON array.</p>
+                    <textarea name="grading_scale" rows="8" required class="w-full font-mono text-xs px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 text-slate-800 dark:text-slate-200">[
+  { "min": 80, "grade": "A", "remark": "Excellent performance" },
+  { "min": 70, "grade": "B", "remark": "Very Good" },
+  { "min": 60, "grade": "C", "remark": "Good effort" },
+  { "min": 50, "grade": "D", "remark": "Satisfactory" },
+  { "min": 0, "grade": "F", "remark": "Needs improvement" }
+]</textarea>
+                </div>
+
+                <div class="flex justify-end">
+                    <button type="submit" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition shadow-sm">
+                        Save Settings & Grading Scale
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 

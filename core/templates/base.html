@@ -6,43 +6,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Epsilon LMS{% endblock %}</title>
 
-  <!-- Inline script to prevent theme flicker on load -->
+  <!-- Prevent Theme Flicker On Page Load -->
   <script>
-    if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    (function() {
+      const storedTheme = localStorage.getItem('color-theme');
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (storedTheme === 'dark' || (!storedTheme && systemDark)) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = 'dark';
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.style.colorScheme = 'light';
+      }
+    })();
   </script>
   
-  <!-- Online Tailwind CSS -->
-<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- Tailwind CSS v4 Browser Build -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
-<!-- Alpine.js -->
-<script defer src="https://cdn.jsdelivr.net/npm/[email protected]/dist/cdn.min.js"></script>
-  
-  <style>
+  <!-- Tailwind CSS v4 Dark Mode Variant Rule -->
+  <style type="text/tailwindcss">
+    @variant dark (&:where(.dark, .dark *));
     [x-cloak] { display: none !important; }
   </style>
+
+  <!-- Alpine.js -->
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
   {% block extra_head %}{% endblock %}
 </head>
 <body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans antialiased"
       x-data="{ 
-        darkMode: localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches),
+        mobileMenuOpen: false,
+        darkMode: document.documentElement.classList.contains('dark'),
         toggleTheme() {
           this.darkMode = !this.darkMode;
           if (this.darkMode) {
             document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
             localStorage.setItem('color-theme', 'dark');
           } else {
             document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
             localStorage.setItem('color-theme', 'light');
           }
         }
       }">
 
   <!-- Main Navigation Bar -->
-  <nav class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50" x-data="{ mobileMenuOpen: false }">
+  <nav class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         
@@ -63,30 +75,25 @@
         <!-- Desktop Navigation Links (Role-Based) -->
         <div class="hidden md:flex items-center space-x-1">
           {% if user.is_authenticated %}
-            
-            <!-- School Admin Links -->
-            {% if user.role == 'SCHOOL_ADMIN' or user.is_staff %}
+            {% if user.role == 'SCHOOL_ADMIN' or user.is_staff or user.is_superuser %}
               <a href="{% url 'school_admin_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Admin Dashboard</a>
+              
+              <!-- School Settings Link tied to active school context -->
               <a href="{% url 'school_settings' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">School Settings</a>
-            
-            <!-- Teacher Links -->
+
             {% elif user.role == 'TEACHER' %}
               <a href="{% url 'teacher_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Teacher Workspace</a>
-
-            <!-- Student Links -->
             {% elif user.role == 'STUDENT' %}
-              <a href="{% url 'student_subjects' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">My Subjects</a>
+              <a href="{% url 'student_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Dashboard</a>
+              <a href="{% url 'student_subjects' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">My Subjects</a>
               <a href="{% url 'student_assignments' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Assignments</a>
-
-            <!-- Parent Links -->
+              <a href="{% url 'exam_results' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Exam Results</a>
+              <a href="{% url 'attendance_record' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Attendance</a>
             {% elif user.role == 'PARENT' %}
               <a href="{% url 'parent_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Parent Dashboard</a>
-
-            <!-- Accountant Links -->
             {% elif user.role == 'ACCOUNTANT' %}
               <a href="{% url 'accountant_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Accountant Dashboard</a>
             {% endif %}
-
           {% endif %}
         </div>
 
@@ -96,11 +103,9 @@
           <button type="button" @click="toggleTheme()" 
                   class="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none transition"
                   title="Toggle Light/Dark Theme">
-            <!-- Sun Icon (Dark Mode active) -->
             <svg x-show="darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <!-- Moon Icon (Light Mode active) -->
             <svg x-show="!darkMode" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             </svg>
@@ -121,7 +126,7 @@
 
         <!-- Mobile Utility & Hamburger -->
         <div class="flex md:hidden items-center gap-2">
-          <!-- Theme Toggle Button (Mobile Viewport) -->
+          <!-- Theme Toggle Button (Mobile) -->
           <button type="button" @click="toggleTheme()" 
                   class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none transition"
                   aria-label="Toggle Theme">
@@ -148,7 +153,7 @@
       </div>
     </div>
 
-    <!-- Mobile Drawer / Dropdown Menu -->
+    <!-- Mobile Drawer Menu -->
     <div x-show="mobileMenuOpen" x-cloak 
       x-transition:enter="transition ease-out duration-200"
       x-transition:enter-start="opacity-0 -translate-y-2"
@@ -159,8 +164,6 @@
       class="md:hidden border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-2 pb-6 space-y-2 shadow-lg">
 
       {% if user.is_authenticated %}
-        
-        <!-- Mobile User Badge Card -->
         <div class="p-3 mb-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
             <p class="font-bold text-sm text-slate-900 dark:text-white">{{ user.get_full_name|default:user.username }}</p>
@@ -171,38 +174,25 @@
           </span>
         </div>
 
-        <!-- Role-Based Navigation Items -->
         <div class="space-y-1.5">
-          {% if user.role == 'SCHOOL_ADMIN' or user.is_staff %}
-            <a href="{% url 'school_admin_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition border border-transparent hover:border-slate-200">
-              📊 Admin Dashboard
-            </a>
-            <a href="{% url 'school_settings' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition border border-transparent hover:border-slate-200">
-              ⚙️ School Settings
-            </a>
+          {% if user.role == 'SCHOOL_ADMIN' or user.is_staff or user.is_superuser %}
+            <a href="{% url 'school_admin_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">📊 Admin Dashboard</a>
+            
+            <!-- School Settings Link (Mobile) -->
+            <a href="{% url 'school_settings' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">⚙️ School Settings</a>
 
           {% elif user.role == 'TEACHER' %}
-            <a href="{% url 'teacher_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              📚 Teacher Workspace
-            </a>
-
+            <a href="{% url 'teacher_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">📚 Teacher Workspace</a>
           {% elif user.role == 'STUDENT' %}
-            <a href="{% url 'student_subjects' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              📖 My Enrolled Subjects
-            </a>
-            <a href="{% url 'student_assignments' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              ✍️ Homework & Assignments
-            </a>
-
+            <a href="{% url 'student_dashboard' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Dashboard</a>
+            <a href="{% url 'student_subjects' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">My Subjects</a>
+            <a href="{% url 'student_assignments' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Assignments</a>
+            <a href="{% url 'exam_results' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Exam Results</a>
+            <a href="{% url 'attendance_record' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition">Attendance</a>
           {% elif user.role == 'PARENT' %}
-            <a href="{% url 'parent_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              👨‍👩‍👧 Parent Dashboard
-            </a>
-
+            <a href="{% url 'parent_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">👨‍👩‍👧 Parent Dashboard</a>
           {% elif user.role == 'ACCOUNTANT' %}
-            <a href="{% url 'accountant_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-              💰 Accountant Dashboard
-            </a>
+            <a href="{% url 'accountant_dashboard' %}" class="block p-3 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition">💰 Accountant Dashboard</a>
           {% endif %}
         </div>
 
@@ -211,7 +201,6 @@
             Log Out Account
           </a>
         </div>
-
       {% else %}
         <div class="p-2">
           <a href="{% url 'login' %}" class="block w-full text-center p-3 rounded-xl text-sm font-semibold text-white bg-blue-600 shadow-sm">
@@ -223,7 +212,7 @@
     </div>
   </nav>
 
-  <!-- Page Content -->
+  <!-- Main Page Content -->
   <main class="flex-1">
     {% block content %}
     {% endblock %}
