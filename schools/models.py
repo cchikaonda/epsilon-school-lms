@@ -120,31 +120,51 @@ class Term(models.Model):
 
 
 class SchoolSetting(models.Model):
-    school = models.OneToOneField(School, on_delete=models.CASCADE, related_name='settings')
-    currency_code = models.CharField(max_length=10, default='MWK')
-    currency_symbol = models.CharField(max_length=5, default='MK')
-    pass_rate = models.PositiveIntegerField(
-        default=50, 
-        validators=[MinValueValidator(0), MaxValueValidator(100)]
-    )
-    coursework_weight = models.PositiveIntegerField(default=40, validators=[MinValueValidator(0), MaxValueValidator(100)])
-    exam_weight = models.PositiveIntegerField(default=60, validators=[MinValueValidator(0), MaxValueValidator(100)])
+  school = models.OneToOneField(
+      'School', on_delete=models.CASCADE, related_name='settings'
+  )
+  currency_code = models.CharField(max_length=10, default='MWK')
+  currency_symbol = models.CharField(max_length=5, default='MK')
+  pass_rate = models.PositiveIntegerField(
+      default=50, validators=[MinValueValidator(0), MaxValueValidator(100)]
+  )
+  coursework_weight = models.PositiveIntegerField(
+      default=40, validators=[MinValueValidator(0), MaxValueValidator(100)]
+  )
+  exam_weight = models.PositiveIntegerField(
+      default=60, validators=[MinValueValidator(0), MaxValueValidator(100)]
+  )
 
-    grading_scale = models.JSONField(default=list, blank=True)
+  grading_scale = models.JSONField(default=list, blank=True)
 
-    enable_sms_notifications = models.BooleanField(default=False)
-    enable_online_payments = models.BooleanField(default=False)
+  enable_sms_notifications = models.BooleanField(default=False)
+  enable_online_payments = models.BooleanField(default=False)
 
-    def get_grading_scale(self):
-        """Returns stored grading scale or standard default scales if empty."""
-        if not self.grading_scale:
-            return [
-                {"min": 75, "max": 100, "grade": "A", "remark": "Distinction"},
-                {"min": 65, "max": 74, "grade": "B", "remark": "Credit"},
-                {"min": 50, "max": 64, "grade": "C", "remark": "Satisfactory"},
-                {"min": 0, "max": 49, "grade": "F", "remark": "Fail"},
-            ]
-        return self.grading_scale
+  @property
+  def default_grading_scale(self):
+    return [
+        {'min': 75, 'max': 100, 'grade': 'A', 'remark': 'Distinction'},
+        {'min': 65, 'max': 74, 'grade': 'B', 'remark': 'Credit'},
+        {'min': 50, 'max': 64, 'grade': 'C', 'remark': 'Satisfactory'},
+        {'min': 0, 'max': 49, 'grade': 'F', 'remark': 'Fail'},
+    ]
 
-    def __str__(self):
-        return f"Settings for {self.school.name}"
+  def get_grading_scale(self):
+    """Returns stored grading scale or standard default scales if empty."""
+    if not self.grading_scale:
+      return self.default_grading_scale
+    return self.grading_scale
+
+  def get_grading_scale_json(self):
+    """Returns the active grading scale formatted as a JSON string for textareas."""
+    import json
+
+    return json.dumps(self.get_grading_scale(), indent=2)
+
+  def save(self, *args, **kwargs):
+    if not self.grading_scale:
+      self.grading_scale = self.default_grading_scale
+    super().save(*args, **kwargs)
+
+  def __str__(self):
+    return f'Settings for {self.school.name}'

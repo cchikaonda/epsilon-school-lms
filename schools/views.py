@@ -327,7 +327,6 @@ def school_settings_view(request, school_id=None):
     classrooms = Classroom.objects.filter(school=school).select_related('grade_level')
 
     if request.method == 'POST':
-        # 1. General Profile & Branding
         school.name = request.POST.get('name', school.name).strip()
         school.code = request.POST.get('code', school.code).strip()
         school.email = request.POST.get('email', school.email).strip()
@@ -342,7 +341,6 @@ def school_settings_view(request, school_id=None):
 
         school.save()
 
-        # 2. Academic Defaults & Active Periods
         current_ay_id = request.POST.get('current_academic_year_id')
         if current_ay_id:
             AcademicYear.objects.filter(school=school).update(is_current=False)
@@ -353,7 +351,6 @@ def school_settings_view(request, school_id=None):
             Term.objects.filter(school=school).update(is_current=False)
             Term.objects.filter(id=current_term_id, school=school).update(is_current=True)
 
-        # 3. Global Settings & Grading Scale JSON
         settings_obj.currency_code = request.POST.get('currency', 'MWK')
         
         pass_mark = request.POST.get('pass_mark')
@@ -374,26 +371,6 @@ def school_settings_view(request, school_id=None):
 
         settings_obj.save()
 
-        # 4. Handle Classroom-Specific Overrides if Scope is Active
-        weight_scope = request.POST.get('weightScope', 'global')
-        if weight_scope == 'class':
-            for c in classrooms:
-                c_pass = request.POST.get(f'class_pass_rate_{c.id}')
-                c_cw = request.POST.get(f'class_cw_{c.id}')
-                c_ew = request.POST.get(f'class_ew_{c.id}')
-
-                c.pass_rate = int(c_pass) if c_pass else None
-                c.coursework_weight = int(c_cw) if c_cw else None
-                c.exam_weight = int(c_ew) if c_ew else None
-
-                class_grades_json = request.POST.get(f'class_grading_json_{c.id}')
-                if class_grades_json:
-                    try:
-                        c.grading_scale = json.loads(class_grades_json)
-                    except json.JSONDecodeError:
-                        pass
-                c.save()
-
         messages.success(request, "School settings, branding, and grading parameters updated successfully!")
         return redirect('school_settings', school_id=school.id)
 
@@ -413,6 +390,22 @@ def school_admin_dashboard(request):
     if not school:
         messages.error(request, "No active school context found for your account.")
         return redirect('home')
+
+    settings, _ = SchoolSetting.objects.get_or_create(
+        school=school,
+        defaults={
+            'coursework_weight': 40,
+            'exam_weight': 60,
+            'pass_rate': 50,
+            'grading_scale': [
+                { "min": 80, "grade": "A", "remark": "Excellent performance" },
+                { "min": 70, "grade": "B", "remark": "Very Good" },
+                { "min": 60, "grade": "C", "remark": "Good effort" },
+                { "min": 50, "grade": "D", "remark": "Satisfactory" },
+                { "min": 0, "grade": "F", "remark": "Needs improvement" }
+            ]
+        }
+    )
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -544,11 +537,10 @@ def school_admin_dashboard(request):
                 messages.success(request, f'Exam "{exam.name}" updated successfully.')
 
             elif action in ['update_school_settings', 'update_settings']:
-                settings = school.settings
                 cw_weight = request.POST.get('coursework_weight')
                 ex_weight = request.POST.get('exam_weight')
                 pass_rate = request.POST.get('pass_rate')
-                grading_scale_json = request.POST.get('grading_scale')
+                grading_scale_json = request.POST.get('grading_scale') or request.POST.get('grading_scale_json')
 
                 if cw_weight:
                     settings.coursework_weight = int(cw_weight)
@@ -560,9 +552,11 @@ def school_admin_dashboard(request):
                 if grading_scale_json:
                     try:
                         parsed_scale = json.loads(grading_scale_json)
+                        if not isinstance(parsed_scale, list):
+                            raise ValueError("Grading scale must be a JSON list.")
                         settings.grading_scale = parsed_scale
-                    except json.JSONDecodeError:
-                        messages.error(request, "Invalid JSON format for grading scale.")
+                    except (json.JSONDecodeError, ValueError) as e:
+                        messages.error(request, f"Invalid JSON format for grading scale: {e}")
                         return redirect('school_admin_dashboard')
 
                 settings.save()
@@ -631,7 +625,7 @@ def school_admin_dashboard(request):
             elif action in ['create_subject', 'add_subject']:
                 name = request.POST.get('subject_name', '').strip() or request.POST.get('name', '').strip()
                 code = request.POST.get('code', '').strip()
-                is_elective = request.POST.get('is_elective') == 'on'
+                is_elective = request.POST.get('is_elective') == 'on' or request.POST.get('is_elective') == True
 
                 Subject.objects.create(school=school, name=name, code=code, is_elective=is_elective)
                 messages.success(request, f'Subject "{name}" created.')
@@ -641,7 +635,7 @@ def school_admin_dashboard(request):
                 subject = get_object_or_404(Subject, id=sub_id, school=school)
                 subject.name = request.POST.get('subject_name', '').strip() or request.POST.get('name', '').strip() or subject.name
                 subject.code = request.POST.get('code', '').strip()
-                subject.is_elective = request.POST.get('is_elective') == 'on'
+                subject.is_elective = request.POST.get('is_elective') == 'on' or request.POST.get('is_elective') == True
                 subject.save()
                 messages.success(request, f'Subject "{subject.name}" updated.')
 

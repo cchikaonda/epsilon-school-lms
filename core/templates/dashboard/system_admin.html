@@ -26,6 +26,36 @@
         </div>
     </div>
 
+    <!-- Active Tenant School Switcher Bar -->
+    <div class="mb-8 bg-slate-900 rounded-2xl shadow-xl border border-slate-800 p-5 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-bold">
+                🏫
+            </div>
+            <div>
+                <h3 class="text-sm font-semibold text-slate-300">Active Tenant Scope</h3>
+                <p class="text-xs text-slate-400">
+                    Currently viewing: <span class="font-bold text-emerald-400">{{ active_school.name|default:"All Tenants (Global View)" }}</span>
+                </p>
+            </div>
+        </div>
+
+        <form method="POST" action="" class="flex items-center gap-3 w-full md:w-auto">
+            {% csrf_token %}
+            <select name="active_school_id" class="text-sm bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <option value="">-- All Schools (Global Overview) --</option>
+                {% for s in schools %}
+                    <option value="{{ s.id }}" {% if active_school and active_school.id == s.id %}selected{% endif %}>
+                        {{ s.name }} ({{ s.code|default:"SCH" }})
+                    </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-sm font-medium rounded-xl transition">
+                Switch Context
+            </button>
+        </form>
+    </div>
+
     <!-- Stat Cards Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="bg-slate-900 rounded-2xl shadow-xl border border-slate-800 p-6">
@@ -37,7 +67,7 @@
         <div class="bg-slate-900 rounded-2xl shadow-xl border border-slate-800 p-6">
             <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Total System Users</div>
             <div class="text-3xl font-extrabold text-white">{{ users_count|default:"0" }}</div>
-            <div class="mt-2 text-sm text-slate-400">Across all institutions</div>
+            <div class="mt-2 text-sm text-slate-400">Across selected scope</div>
         </div>
 
         <div class="bg-slate-900 rounded-2xl shadow-xl border border-slate-800 p-6">

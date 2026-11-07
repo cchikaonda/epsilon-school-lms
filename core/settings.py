@@ -123,6 +123,8 @@ MIDDLEWARE = [
 
     "django.contrib.sessions.middleware.SessionMiddleware",
 
+    "core.middleware.TenantMiddleware",
+
     "django.middleware.common.CommonMiddleware",
 
     "django.middleware.csrf.CsrfViewMiddleware",

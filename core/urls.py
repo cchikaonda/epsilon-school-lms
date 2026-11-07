@@ -4,6 +4,9 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+# 📍 1. Import your custom tenant admin site (assuming you placed it in schools.admin_site or core)
+from schools.admin_site import school_admin_site  
+
 from core.views import home
 from schools.views import (
     dashboard_redirect,
@@ -25,7 +28,11 @@ from schools.views import (
 urlpatterns = [
     # Top-Level Web Pages
     path("", home, name="home"),
-    path('admin/', admin.site.urls),
+    
+    # 📍 2. Separate Admin URLs
+    path('master-admin/', admin.site.urls),       # Global system superuser admin panel
+    path('admin/', school_admin_site.urls),       # Tenant-isolated school admin panel at /admin/
+
     path('login/', TenantLoginView.as_view(), name='login'),
     path('logout/', logout_view, name='logout'),
     path('accounts/login/', TenantLoginView.as_view()),  # Fallback for default Django redirects
@@ -53,7 +60,7 @@ urlpatterns = [
     path('assignments/', assignments_list_view, name='assignments_list'),
     path('attendance/', attendance_record_view, name='attendance_record'),
     path('student/<str:student_id>/report/<uuid:exam_id>/download/',  download_report_card_view, name='download_report_card'),
-    ]
+]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
