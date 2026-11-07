@@ -140,21 +140,25 @@ def home(request):
 @login_required
 def dashboard_redirect(request):
     user = request.user
-    role = getattr(user, 'role', None) or getattr(user, 'user_type', None)
-
-    if user.is_superuser or role in ['ADMIN', 'SUPER_ADMIN']:
+    
+    # 1. Superusers should always go to the Platform Control Center first
+    if user.is_superuser:
         return redirect('system_admin_dashboard')
-    elif role == 'SCHOOL_ADMIN' or (user.is_staff and getattr(user, 'school', None)):
+    
+    # 2. Check role / tenant permissions for other users
+    if hasattr(user, 'is_school_admin') and user.is_school_admin: # (or check your role logic)
         return redirect('school_admin_dashboard')
-    elif role == 'ACCOUNTANT' or hasattr(user, 'accountant_profile'):
-        return redirect('accountant_dashboard')
-    elif role == 'PARENT' or hasattr(user, 'parent_profile'):
-        return redirect('parent_dashboard')
-    elif role == 'TEACHER' or hasattr(user, 'teacher_profile'):
+    elif hasattr(user, 'is_teacher') and user.is_teacher:
         return redirect('teacher_dashboard')
-
-    return redirect('student_dashboard')
-
+    elif hasattr(user, 'is_student') and user.is_student:
+        return redirect('student_dashboard')
+    elif hasattr(user, 'is_accountant') and user.is_accountant:
+        return redirect('accountant_dashboard')
+    elif hasattr(user, 'is_parent') and user.is_parent:
+        return redirect('parent_dashboard')
+        
+    # Fallback default
+    return redirect('home')
 
 # ==========================================
 # Student Import View with Logging
@@ -372,7 +376,7 @@ def school_settings_view(request, school_id=None):
         settings_obj.save()
 
         messages.success(request, "School settings, branding, and grading parameters updated successfully!")
-        return redirect('school_settings', school_id=school.id)
+        return redirect('school_settings')
 
     context = {
         'school': school,
