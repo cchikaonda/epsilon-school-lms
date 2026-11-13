@@ -880,6 +880,15 @@ def parent_dashboard(request):
     if not parent_profile:
         parent_profile, _ = ParentProfile.objects.get_or_create(user=user, school=school)
     
+    # Auto-link students if none are linked yet, matching by guardian phone number
+    if not parent_profile.students.exists() and user.phone_number:
+        matching_students = StudentProfile.objects.filter(
+            school=school, 
+            guardian_phone=user.phone_number
+        )
+        if matching_students.exists():
+            parent_profile.students.add(*matching_students)
+    
     linked_students = parent_profile.students.prefetch_related(
         'user',
         'enrollments__classroom__grade_level',
@@ -898,7 +907,6 @@ def parent_dashboard(request):
         'exam_results': exam_results,
     }
     return render(request, 'dashboard/parent.html', context)
-
 
 @login_required
 def teacher_dashboard(request):

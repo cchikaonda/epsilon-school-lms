@@ -60,7 +60,7 @@
                                 {% endwith %}
                             </div>
 
-                            <!-- Metrics Grid (Fixed related_names) -->
+                            <!-- Metrics Grid -->
                             <div class="grid grid-cols-2 gap-3 text-center mb-4">
                                 <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
                                     <span class="block text-xs text-gray-500">Attendance Log</span>
@@ -134,7 +134,7 @@
 
                         <!-- Card Footer Action -->
                         <div class="pt-2">
-                            <a href="{% url 'exam_results' %}" class="block text-center w-full py-2 bg-gray-900 hover:bg-black text-white text-sm font-medium rounded-lg transition shadow-sm">
+                            <a href="[View Results](https://zikomoprivate.epsilonlms.tech/exams/results/)" class="block text-center w-full py-2 bg-gray-900 hover:bg-black text-white text-sm font-medium rounded-lg transition shadow-sm">
                                 View Full Academic Records
                             </a>
                         </div>
@@ -142,14 +142,14 @@
                 {% endfor %}
             </div>
         {% else %}
-            <!-- Placeholder Card if Children Queryset is empty -->
+            <!-- Fallback Placeholder Card if Children Queryset is empty -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-md">
                 <div class="flex items-center space-x-4 mb-4">
                     <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-lg">
                         SB
                     </div>
                     <div>
-                        <h3 class="font-bold text-gray-900 text-lg">Sample Student</h3>
+                        <h3 class="font-bold text-gray-900 text-lg">[Sample Student](url?id=undefined)</h3>
                         <p class="text-xs text-gray-500">ID: ADM-2026-001 | Form 2 East</p>
                     </div>
                 </div>
@@ -189,7 +189,7 @@
                         <p class="font-medium text-gray-900 text-sm">End of Term Report Card</p>
                         <p class="text-xs text-gray-500">Accessible across registered students</p>
                     </div>
-                    <a href="{% url 'exam_results' %}" class="text-sm font-semibold text-emerald-600 hover:underline flex items-center">
+                    <a href="[View Results](https://zikomoprivate.epsilonlms.tech/exams/results/)" class="text-sm font-semibold text-emerald-600 hover:underline flex items-center">
                         <i class="fas fa-download mr-1"></i> View Results
                     </a>
                 </div>
@@ -198,7 +198,7 @@
                         <p class="font-medium text-gray-900 text-sm">Continuous Assessment Log</p>
                         <p class="text-xs text-gray-500">Updated weekly by subject teachers</p>
                     </div>
-                    <a href="{% url 'assignments_list' %}" class="text-sm font-semibold text-emerald-600 hover:underline flex items-center">
+                    <a href="[Check Assignments](https://zikomoprivate.epsilonlms.tech/assignments/)" class="text-sm font-semibold text-emerald-600 hover:underline flex items-center">
                         <i class="fas fa-eye mr-1"></i> Check Assignments
                     </a>
                 </div>
