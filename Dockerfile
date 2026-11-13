@@ -36,8 +36,8 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy the rest of the Django project (including src/input.css)
 COPY . .
 
-# Compile Tailwind CSS for production/container use
-RUN npx @tailwindcss/cli -i ./src/input.css -o ./static/css/tailwind.css
+# Compile Tailwind CSS using the direct node_modules binary path
+RUN node ./node_modules/@tailwindcss/cli/dist/index.js -i ./src/input.css -o ./static/css/tailwind.css
 
 # Collect static files inside the container
 RUN python manage.py collectstatic --noinput
@@ -45,5 +45,5 @@ RUN python manage.py collectstatic --noinput
 # Django port
 EXPOSE 8000
 
-# Start Django (For production use Gunicorn, or keep runserver for local dev container)
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Start Django (runs migrations automatically on startup, then runs server)
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
