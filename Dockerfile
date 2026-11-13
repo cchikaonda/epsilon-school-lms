@@ -10,21 +10,12 @@ ENV PYTHONUNBUFFERED=1
 # Set working directory
 WORKDIR /app
 
-# Install PostgreSQL/build dependencies AND Node.js (required for Tailwind CSS v4)
+# Install PostgreSQL build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     build-essential \
     pkg-config \
-    curl \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
-
-# Copy package files first for caching npm dependencies
-COPY package.json package-lock.json* ./
-
-# Install Node dependencies (Tailwind CLI)
-RUN npm install
 
 # Copy Python requirements first for Docker layer caching
 COPY requirements.txt .
@@ -33,11 +24,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the Django project (including src/input.css)
+# Copy the rest of the Django project (including your pre-compiled static/css/tailwind.css)
 COPY . .
-
-# Compile Tailwind CSS using the direct node_modules binary path
-RUN node ./node_modules/@tailwindcss/cli/dist/index.js -i ./src/input.css -o ./static/css/tailwind.css
 
 # Collect static files inside the container
 RUN python manage.py collectstatic --noinput
