@@ -1,0 +1,1 @@
+@import "tailwindcss";`n`n@variant dark (&:where(.dark, .dark *));`n[x-cloak] { display: none !important; }

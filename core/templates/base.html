@@ -21,8 +21,8 @@
     })();
   </script>
   
-  <!-- Tailwind CSS v4 Browser Build -->
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- Tailwind CSS v4 Local Build -->
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
 
   <!-- Tailwind CSS v4 Dark Mode Variant Rule -->
   <style type="text/tailwindcss">
@@ -30,8 +30,8 @@
     [x-cloak] { display: none !important; }
   </style>
 
-  <!-- Alpine.js -->
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Alpine.js Local -->
+  <script defer src="{% static 'js/alpine.min.js' %}"></script>
 
   {% block extra_head %}{% endblock %}
 </head>
